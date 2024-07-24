@@ -1,0 +1,382 @@
+---
+layout: post
+title: "데이터 탐색과 시각화"
+date: 2024-07-24 03:01:45 +0900
+categories: KHUDA
+---
+## **10.0 서론**
+☆ 해당 절은 데이터의 형태와 분포, 이상치와 결측치 등을 확인하는 탐색적 데이터 분석과 상관성 분석 그리고 시각화 기법들에 대하여 알아보는 절이다.
+
+## **10.1 탐색적 데이터 분석(Exploratory Data Analysis; EDA): 가공하지 않은 원천의 데이터를 있는 그대로 탐색하고 분석하는 기법.**
+☆ 지양해야할 점 : 극단적 해석, 지나친 추론, 자의적 해석
+
+☆ 목적   
+➀ 데이터의 형태와 척도가 분석에 알맞게 되어있는지 확인   
+➁ 데이터의 평균, 분산, 분포, 패턴 등의 확인을 통해 데이터 특성 파악     
+➂ 데이터의 결측값이나 이상치 파악 및 보완    
+➃ 변수 간의 관계성 파악    
+➄ 분석 목적과 방향성 점검 및 보정
+
+## 10.1.1 엑셀을 활용한 EDA
+☆ 엑셀 이용의 효과     
+➀ 데이터 샘플을 변수와 설명 리스트와 함께 살펴볼 수 있어 빠른 시간 안에 데이터에 대한 전체적인 감을 잡을 수 있음.   
+➁ 데이터 이슈를 발견하기 쉬움.     
+➂ 피벗 테이블을 생성해서 평균을 파악할 수 있음.    
+![image](https://github.com/user-attachments/assets/757ff157-d351-41d9-a05e-3e4f87d2af9e)
+⬆︎ 엑셀을 활용한 EDA의 예시 
+
+☆ 엑셀 이용의 한계 : 엑셀을 활용한 방법은 본격적인 데이터 탐색에 들어가기에 앞서 데이터에 대한 심리적 거리감을 줄여주는 보조적 방법일 뿐.
+
+## 10.1.2 탐색적 데이터 분석 실습
+➀ 칼럼 속성 확인 : 데이터의 정보를 불러와 각 칼럼의 속성 및 결측치를 확인.
+```python
+df.info() #데이터에 대한 전반적인 정보를 나타내도록 함
+```
+➁ 칼럼 통계치 확인 : 기술통게적 측정을 통한 통계치 확인
+```python
+df.describe() #평균, 표준편차, 최대 최솟값 등을 한 번에 확인
+```
+➂ 칼럼 왜도 및 첨도 확인 : 왜도와 첨도를 확인. 변숫값 분포의 정규성이 필요한 경우 로그변환, 정규화, 표준화 등의 방법을 사용
+```python
+df.skew() #칼럼의 왜도 확인
+df.kurtosis() #칼럼의 첨도 확인
+```
+*왜도 : 확률분포의 비대칭성을 나타내는 지표.    
+**첨도 : 도수분포의 뾰족한 정도를 나타내는 지표.    
+
+➃ 시각화를 통한 특정 변수의 분포 확인 : 시각화를 통해 분포의 명료성을 강화
+```python
+sns.distplot(df['lead_time']) # 칼럼의 분포 시각화 
+```
+![image](https://github.com/user-attachments/assets/27d87847-6d9d-4b84-99d7-bff47250f311)
+
+⬆︎ 시각화한 칼럼의 분포
+
+✓ 주의 : 0값이 실제로 당일 예약이라 그렇게 기록된 것인지 혹은 시스템상 기록이 제대로 남지 않은 예약 건을 일괄적으로 0으로 입력한 것인지 확인할 필요가 있음.
+
+➄ 그룹 구분에 따른 특정 변수 분포 차이 시각화
+```python
+sns.violinplot(x="hotel", y="lead_time", data=df, inner=None, color=".8") #분포를 효과적으로 표현
+sns.stripplot(x="hotel", y="lead_time", data=df, size=1) #각 관측치의 위치를 직관적으로 표현
+```
+![image](https://github.com/user-attachments/assets/ab892e2e-8e15-4cad-99e1-9f100ab52e8a)
+
+⬆︎ 시각화한 변수 분포의 차이
+
+## **10.2 공분산과 상관성 분석**
+☆ 변수 간 관계 파악의 중요성 : 독립 변수의 변화에 따른 종속 변수의 변화량을 크게 하여 통계적 정확도를 감소시키는 다중공선성을 방지할 수 있으며, 데이터에 대한 이해도를 높일 수 있음.
+
+☆ 상관 분석의 가정 : 데이터가 등간이나 비율 척도이며, 두 변수가 선형적 관계라고 가정.
+
+## 10.2.1 공분산
+☆ 공분산 : 변수 사이의 공통적인 분산의 정도를 표현.    
+➀ 양의 상관관계 : 변수 1이 커지면 번수 2도 커짐.   
+➁ 음의 상관관계 : 변수 1이 커지면 번수 2는 작아짐.     
+➂ 무 상관관계 : 두 변수 사이에 선형적인 관계가 없음.   
+➃ (-)1 : 두 변수가 완벽한 직선의 관계를 이룸.
+
+☆ 공분산의 한계 : 각 변수 간의 다른 척도기준이 그대로 반영되어 공분산 값이 지니는 크기가 상관성의 정도를 나타내지 못함.
+
+## 10.2.2 상관계수
+☆ 피어슨 상관계수 : 공분산을 두 변수가 변하는 전체 정도로 나눠준 값.
+![image](https://github.com/user-attachments/assets/48fb52b7-9524-4060-ab8e-69021cc48861)
+
+⬆︎ Christine Dancey 교수가 정의한 상관계수의 단계    
+
+☆ 주의 : 산점도의 기울기와 상관계수는 관련이 없음. 분산의 관계성이 같다면 기울기가 크든 작든 상관계수는 같음.
+
+☆ 상관계수의 의미 : 상관계수가 높다는 것은 갹 변수 사이의 상관성이 높아 설명력이 높다는 것을 의미.
+
+## 10.2.3 공분산과 상관성 분석 실습
+➀ 산점도 행렬 시각화
+```python
+sns.set(font_scale=1.1) #폰트 크기 설정
+sns.set_style('ticks') #축 눈금 설정
+sns.pairplot(df,
+             diag_kind='kde'
+             ) #상관계수가 1이면 분포로 표시
+pit.show()
+```
+➁ 공분산 산출
+```python
+df.cov() #공분산 산출
+```
+➂ 피어슨 상관계수 산출
+```python
+df.corr(method='pearson') #피어슨 상관계수 산출
+```
+➃ 상관계수 히트맵 시각화
+```python
+sns.heatmap(df.corr(), cmap='viridis') #히트맵 생성
+```
+![image](https://github.com/user-attachments/assets/3f314c3f-a1f4-41de-b858-7c40956fb8fe)
+⬆︎ 상관계수 히트맵  
+
+☆ 한계 : 정확한 수치가 나오지 않아 불편함.
+
+➄ clustermap 히트맵 시각화 : 히트맵과 정확한 수치가 함께 제공.
+```python
+sns.clustermap(df.corr(),
+               annot = True,
+               vmin = -1, vmax = 1,
+               )
+```
+![image](https://github.com/user-attachments/assets/7ffd0ec3-5e5e-4d5c-ab67-f5c2a6cc2b08)
+⬆︎ clustermap 히트맵
+
+## **10.3 시간 시각화**
+☆ 시간 시각화의 효과 : 전체적인 흐름을 한눈에 확인할 수 있고, 데이터의 트렌드나 노이즈도 쉽게 찾아낼 수 있음.
+
+☆ 연속형 시간 시각화 : 선그래프로 나타내며 시간 간격의 밀도가 높을 때 사용하는 시간 시각화. 이때 데이터의 양이 너무 많거나 변동이 심하면 트렌드나 패턴을 확인하는 것이 어려울 수 있는데, 이러한 경우 추세선을 삽입하여 전체적인 경향이나 패턴을 쉽게 파악할 수 있도록 함.
+
+☆ 분절형 시간 시각화 : 막대그래프, 누적 막대그래프, 점 그래프 등으로 표현하며 시간의 밀도가 낮을 때 사용하는 시간 시각화. 값들의 상대적 차이를 나타내는 것에 유리.
+
+## 10.3.1 시간 시각화 실습
+➀ 선그래프 시각화를 위한 데이터 가공
+```python
+df['Date2']= pd.to_datetime(df['Order Date'] , infer_datetime_format=True) #date 칼럼 날짜 형식 변환
+df = df.sort_values(by='Date2') #날짜 오름차순 정렬
+df['Year'] = df['Date2'].dt.year #연도 칼럼 생성
+df_line=df[df.Year == 2018] #선그래프용 데이터셋 생성
+df_line = df_line.groupby('Date2')['Sales'].sum().reset_index()
+df_line.head() #2018년 일별 매출액 가공
+```
+➁ 선그래프 시각화
+```python
+df_line['Month'] = df_line['Sales'].rolling(window=30).mean() #30일 이동평균 생성
+ax = df_line.plot(x='Date2', y='Sales', linewidth= "0.5")
+df_line.plot(x='Date2', y='Month', color='#FF7F50', linewidth = "1", ax=ax)#선그래프 시각화
+```
+![image](https://github.com/user-attachments/assets/eab7bfeb-4329-47e5-9ac7-1860bb37a760)
+⬆︎ 시각화한 선그래프
+
+➂ 막대그래프 시각화를 위한 데이터 가공
+```python
+df_bar_1 = df.groupby('Year')['Sales'].sum().reset_index()
+df_bar_1.head() #연도별 판매량 데이터 가공
+```
+➃ 막대그래프 시각화
+```python
+ax = df_bar_1.plot.bar(x='Year', y='Sales', rot=0, figsize=(10,5)) #연도별 매출액 막대그래프 시각화
+```
+![image](https://github.com/user-attachments/assets/1679a068-2293-40c8-9307-e53ecab59dab)
+⬆︎ 시각화한 막대그래프
+
+## **10.4 비교 시각화**
+☆ 히트맵 차트 : 그룹과 비교 요소가 많을 때 효과적으로 시각화 할 수 있는 방법.
+
+☆ 방사형 차트 : 히트맵 차트와 유사한 효과.
+
+☆ 평행 좌표 그래프 : 히트맵 차트와 유사한 효과.
+
+## 10.4.1 비교 시각화 실습
+➀ 히트맵 시각화를 위한 데이터 전처리
+```python
+df1 = df[df['Tm'].isin(['ATL','BOS','CHI','CHO'])] #5개 팀만 필터링
+df1 = df1[['Tm', 'ORB%', 'TRB%', 'AST%', 'BLK%', 'USG%']] #6개 칼럼만 필터링
+df1 = df1.groupby('Tm').mean()
+df1.head() #팀별 요소 평균 전처리
+```
+➁ 히트맵 시각화
+```python
+fig = pit.figure(figsize=(8,8))
+fig.set_facecolor('white')
+plt.pcolor(df1.values) #히트맵 시각화
+plt.xticks(range(len(df1.columns)),df1.columns) #x축 칼럼 설정
+plt.yticks(range(len(df1.index)), df1.index) #y축 칼럼 설정
+plt.xlabel('Value', fontsize=14) #x축 레이블 설정
+plt.ylabel('Team', fontsize=14)
+plt.colorbar()
+plt.show() #y축 레이블 설정
+```
+![image](https://github.com/user-attachments/assets/e76f9318-94d6-4ece-815e-3d0cb59569e5)
+
+⬆︎ 시각화한 히트맵
+
+➂ 방사형 차트 시각화를 위한 데이터 전처리
+```python
+df3 = df1.reset_index()
+df3.head() #방사형 차트를 위한 인덱스 초기화
+```
+➃ 방사형 차트 시각화
+```python
+labels = df3.columns[1:]
+num_labels = len(labels) 
+angles = [x/float(num_labels)*(2*pi) for x in range(num_labels)] #등분점 생성
+angles += angles[:1] #시작점 생성
+my_palette = pit.cm.get_cmap("Set2", len(df3.index))
+fig = plt.figure(figsize=(8,8))
+fig.set_facecolor('white')
+ax = fig.add_subplot(polar=True)
+for i, row in df3.iterrows():
+    color = my_palette(i)
+    data = df3.iloc[i].drop('Tm').tolist()
+    data += data[:1]
+
+    ax.set_theta_offset(pi / 2) #시작점
+    ax.set_theta_direction(-1) #시계방향 설정
+    plt.xticks(angles [:-1], labels, fontsize=13) #각도 축 눈금 생성
+    ax.tick_params(axis='x', which='major', pad=15) #각 축과 눈금 사이 여백 생성
+    ax.set_rlabel_positiong(0) #반지름 축 눈금 라벨 각도 0으로 설정
+    plt.yticks([0,5,10,15,20],['0','5','10','15','20'], fontsize=10)
+    plt.ylim(0,20) #반지름 축 눈금 설정
+    ax.plot(angles, data, color=color, linewidth=2, linestyle='solid', label=row.Tm) #방사형 차트 출력
+    ax.fill(angles, data, color=color, alpha=0.4) #도형 안쪽 색상 설정
+
+plt.legend(loc=(0,9,0.9))
+plt.show()
+```
+![image](https://github.com/user-attachments/assets/bae2fb13-7cf1-491d-83a3-575c60b13740)
+
+⬆︎ 시각화한 방사형 차트
+
+➄ 평행 좌표 그래프 시각화
+```python
+fig,axes = plt.subplots()
+plt.figure(figsize=(16,8)) #그래프 크기 조정
+parallel_coordinates(df3,'Tm',ax=axes, colormap='winter',linewidth = "0.5")
+```
+![image](https://github.com/user-attachments/assets/ac44f204-963d-42b7-9abf-4d55e573d4d2)
+
+⬆︎ 시각화한 평행 좌표 그래프
+
+## **10.5 분포 시각화**
+☆ 분포 시각화 : 데이터가 처음 주어졌을 때, 변수들이 어떤 요소로 어느 정도의 비율로 구성되어 있는지를 확인하는 효과적인 방법.
+
+☆ 분포 시각화 작성의 특징 : 연속형과 같은 양적 척도의 경우 막대그래프나 선그래프, 히스토그램을 통해 분포를 나타내며, 명목형과 같은 질적 척도의 경우 파이차트나 도넛차트, 트리맵 차트를 이용한다.
+
+## 10.5.1 분포 시각화 실습
+➀ 히스토그램 시각화
+```python
+df1 = df[['height_cm']] #신장 칼럼만 필터링
+plt.hist(df1, bins=10, label='bins=10')
+plt.legend()
+plt.show()
+```
+![image](https://github.com/user-attachments/assets/8a8c3e3e-f5e6-4366-9bdf-88235e4b31c9)
+
+⬆︎ 시각화한 히스토그램
+
+➁ 파이차트와 도넛차트 시각화를 위한 데이터 전처리
+```python
+df2 = df[['coutry','height_cm']]
+df2=df2[df.height_cm >= 175] #175 이상만 추출
+df2 = df2.groupby('country').count().reset_index()
+df2.head(10)
+```
+
+➂ 파이차트 시각화
+```python
+fig = plt.figure(figsize=(8,8)) #캔버스 생성
+fig.set_facecolor('white') #캔버스 배경색 설정
+ax = fig.add_subplot() #프레임 생성
+ax.pie(df2.height_cm,
+       labels=df2.country, #라벨 출력
+       startangle=0, #시작점 degree 설정
+       counterclock=False, #시계 방향
+       autopct=lambda p : '{:.1f}%'.format(p) #퍼센트 자릿수 설정
+       )
+plt.legend() #범례 표시
+plt.show()
+```
+![image](https://github.com/user-attachments/assets/a07bcca8-eaf1-4029-9719-1ee1eb296dc2)
+
+⬆︎ 시각화한 파이차트
+
+➃ 도넛 차트 시각화
+```python
+wedgeprops={'width': 0.7, 'edgecolor': 'w', 'linewidth': 5} #차트 형태 옵션 설정
+plt.pie(df2.height_cm, labels=df2.country, autopct='%.1f%%',
+        startanle=90, counterclock=False, wedgeprops=wedgeprops)
+plt.show()
+```
+![image](https://github.com/user-attachments/assets/10ef5845-05f1-4943-ac38-f35f9489a266)
+
+⬆︎ 시각화한 도넛 차트
+
+➄ 트리맵 차트 시각화를 위한 데이터 전처리
+```python
+df3 = df[['coutry', 'sex', 'height_cm']]
+df3=df3[df.height_cm >= 175]
+df3 = df3.groupby(['country', 'sex']).count().reset_index()
+df3.head(10)
+```
+➅ 트리맵 차트 시각화
+```python
+fig = px.treemap(df3,
+                 path=['sex','country'],
+                 values='height_cm',
+                 color='height_cm',
+                 color_continuous_scale='viridis')
+fig.show()
+```
+![image](https://github.com/user-attachments/assets/7a7363f3-1a83-4489-9703-67d962904c2c)
+
+⬆︎ 시각화한 트리맵 차트
+
+## **10.6 관계 시각화**
+☆ 산점도 : 두 개의 연속형 변수 간의 관계를 나타낼 수 있는 지표.
+
+☆ 산점도 시각화 팁 : 극단치를 제거하여 그리고, 각각의 점에 투명도를 주어 점들의 밀도를 표현할 수 있도록 할 것.
+
+☆ 버블 차트 : 세 가지 요소의 상관관계를 표현할 수 있는 지표. 버블의 크기로 한 가지 요소를 추가적으로 표현.
+
+☆ 버블 차트 해석시 유의사항 : 원의 지름이 아닌 면적을 통해 크기를 판단.
+
+## 10.6.1 관계 시각화 실습
+➀ 산점도 시각화
+```python
+plt.scatter(df['R&D Spend'], df['Profit'], s = 50, alpha = 0.4)
+plt.show()
+```
+![image](https://github.com/user-attachments/assets/4911ab8c-12e9-4a21-bcef-e5506680d63a)
+
+⬆︎ 시각화한 산점도
+
+➁ 버블 차트 시각화
+```python
+plt.scatter(df['R&D Spend'], df['Profit'], s=df['Marketing Spend']*0.001,
+            c=df['Administration'], alpha=0.5, cmap='Spectral')
+plt.colorbar()
+plt.show()
+```
+![image](https://github.com/user-attachments/assets/e96181e6-9476-4912-8367-50d7f8cc0ac0)
+
+⬆︎ 시각화한 버블 차트
+
+## **10.7 공간 시각화**
+☆ 공간 시각화 : 데이터가 지리적 위치와 관련되어 있으면 실제 지도 위에 데이터를 표현. 위도와 경도 데이터를 지도에 매핑하는 것이 대부분이지만 시각화 프로그램에 따라 위도와 경도 정보가 없어도 지도에 위치 표현이 가능하기도 함.
+
+☆ 공간 시각화의 기법
+➀ 도트맵 : 지리적 위치에 동일한 크기의 작은 점을 찍어서 해당 지역의 데이터 분포나 패턴을 표현하는 기법.
+➁ 버블맵 : 버블 차트를 지도에 그대로 옮겨 표현하는 기법.
+➂ 코로플레스맵 : 데이터 값의 크기에 따라 색상의 음영을 달리하여 해당 지역에 대한 값을 시각화 하는 기법.
+➃ 커넥션맵 : 지도에 찍힌 점들을 곡선 또는 직선으로 연결하여 지리적 관계를 표현하는 기법.
+
+## 10.7.1 공간 시각화 실습
+
+## **10.8 박스 플롯**
+☆ 박스 플롯 : 상자 모양에 최댓값과 최솟값을 나타내는 선이 결합된 모양의 데이터 시각화 방법. 하나의 그림으로 양적 척도 데이터의 분포 및 편향성, 평균과 중앙값 등 다양한 수치를 보기 쉽게 정리해줌.
+
+☆ 박스 플롯의 구조
+➀ 최솟값 : 제1사분위에서 1.5 IQR을 뺀 위치.
+➁ 제1사분위 : 25%의 위치.
+➂ 제2사분위 : 50%의 위치(중앙값).
+➃ 제3사분위 : 75%의 위치.
+➄ 최댓값 : 제3사분위에서 1.5 IQR을 더한 위치.
+![image](https://github.com/user-attachments/assets/092fff0f-6d90-4837-a48e-7e9c19692b97)
+
+⬆︎ 박스 플롯의 구조
+
+## 10.8.1 박스 플롯 실습
+➀ 박스 플롯 시각화
+```python
+plt.figure(figsize = (8,6))
+sns.boxplot(y = 'Profit', data = df)
+plt. show()
+```
+![image](https://github.com/user-attachments/assets/2016ef0d-e6b9-49ee-ace4-9e3a1a8cd827)
+
+⬆︎ 시각화한 박스 플롯
+
+### 출처 : 데이터 분석가가 반드시 알아야 할 모든 것
