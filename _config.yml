@@ -23,7 +23,7 @@ email: jjunyeong1010@khu.ac.kr
 description: >- # this means to ignore newlines until "baseurl:"
   우당탕 쿠다ㅇ탕
 baseurl: "" # the subpath of your site, e.g. /blog
-url: "" # the base hostname & protocol for your site, e.g. http://example.com
+url: https://junyeong-khu.github.io # the base hostname & protocol for your site, e.g. http://example.com
 twitter_username: jekyllrb
 github_username:  jekyll
 
