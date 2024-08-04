@@ -1,11 +1,11 @@
 # Setup
-title: Not Pure Poole
-description: A simple, beautiful, and powerful Jekyll theme for blogs
-url: https://vszhub.github.io
-avatar: /avatar.jpeg
+title: 쿠다ㅇ탕
+description: KHUDA 6th
+url: https://junyeong-khu.github.io/dates/
+avatar: /IMG_4004.heic
 paginate: 5
 permalink: pretty
-cover_image: /bg.jpeg
+cover_image: /8CF0FDE4-2D0D-4735-8A24-BAAB81AB9798.jpg
 
 # Gems
 plugins:
@@ -35,8 +35,8 @@ logo: logo.png
 social:
   name: Songzi Vong
   links:
-    - https://twitter.com/vszhub
-    - https://github.com/vszhub
+    - 
+    - https://github.com/junyeong-khu/junyeong-khu.github.io
 google_site_verification: xxxxx
 lang: en
 
@@ -54,6 +54,6 @@ sass:
 
 # Specify the author for blog posts
 author:
-  name: Songzi Vong
-  url: https://github.com/vszhub/
-  email: vszhub@gmail.com
+  name: JunYeong Lee
+  url: https://junyeong-khu.github.io/about/
+  email: jjunyeong1010@khu.ac.kr
