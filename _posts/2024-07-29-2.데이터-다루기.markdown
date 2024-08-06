@@ -2,7 +2,7 @@
 layout: post
 title: "혼자 공부하는 머신러닝+딥러닝 : 2. 데이터 다루기"
 date: 2024-07-29 03:01:45 +0900
-categories: 혼자 공부하는 머신러닝+딥러닝
+categories: 혼자-공부하는-머신러닝+딥러닝
 ---
 ## <span style= 'background-color: #f1f8ff'>2-1: 훈련 세트와 테스트 세트
 ☆ **지도 학습과 비지도 학습**
