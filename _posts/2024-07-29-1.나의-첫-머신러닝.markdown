@@ -2,7 +2,7 @@
 layout: post
 title: "혼자 공부하는 머신러닝+딥러닝 : 1. 나의 첫 머신러닝"
 date: 2024-07-29 03:01:45 +0900
-categories: KHUDA
+categories: 혼자 공부하는 머신러닝+딥러닝
 ---
 ## <span style= 'background-color: #f1f8ff'>1-1: 인공지능과 머신러닝, 딥러닝
 ☆ **인공지능(artificial intelligence)**: 사람처럼 학습하고 추론할 수 있는 지능을 가진 컴퓨터 시스템을 만드는 기술
@@ -43,8 +43,8 @@ categories: KHUDA
 #데이터 준비에서 사용되는 명령어
 
 import matplotlib.pyplot as plt #함수 사용을 위해 불러오는 명령어
-plt.scatter(x, y) #산점도를 표시하는 명령어
-plt.xlabel('') #x축에 표시할 변수를 표시하는 명령어
+plt.scatter(bream_length, bream_weight) #산점도를 표시하는 명령어
+plt.xlabel('length') #x축에 표시할 변수명을 설정하는 명령어
 plt.show() #산점도를 출력하는 명령어
 ```
 📌 Tip: 우리가 사용하는 맷플롯립에서 2개의 산점도를 한 그래프로 그릴 때는 scatter() 함수를 연달아 사용하면 됨. 이때 자동으로 색도 구분해서 나타남.
@@ -103,3 +103,5 @@ for n in range(5, 50):
         print(n, score)
         break
 ```
+
+### 출처 : 혼자 공부하는 머신러닝+딥러닝

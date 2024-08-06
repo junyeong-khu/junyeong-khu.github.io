@@ -1,0 +1,217 @@
+---
+layout: post
+title: "혼자 공부하는 머신러닝+딥러닝 : 3. 회귀 알고리즘과 모델 규제"
+date: 2024-08-05 03:01:45 +0900
+categories: 혼자 공부하는 머신러닝+딥러닝
+---
+## <span style= 'background-color: #f1f8ff'>3-1: k-최근접 이웃 회귀
+☆ **회귀**: 지도 학습 알고리즘의 한 종류로 임의의 어떤 숫자를 예측하는 알고리즘. 정해진 클래스가 없으며 임의의 수치를 출력함.
+
+☆ **k-최근접 이웃 회귀**: 예측하려는 샘플에 가장 가까운 샘플 k개를 선택한 후 해당 샘플들의 평균을 정답으로 사용하는 것. 이때 이웃한 샘플의 타깃은 어떤 클래스가 아니라 임의의 수치임.
+
+☆ **k-최근접 이웃 회귀를 활용한 생선 무게 에측 프로그램**
+
+➀ 데이터 준비: 데이터 리스트 준비, 산점도 표시, 훈련 세트와 테스트 세트 준비를 통해 프로그램에 사용될 전반적인 데이터 준비.
+```python
+#데이터 준비에서 사용되는 명령어
+
+import numpy as np #함수 사용을 위해 불러오는 명령어
+perch_length = np.array(
+    [8.4, 13.7, 15.0, ~~~~~~, 44.0]
+    ) #해당 리스트를 넘파이 배열로 변환시키는 명령어
+import matplotlib.pyplot as plt #함수 사용을 위해 불러오는 명령어
+plt.scatter(perch_length, perch_weight) #산점도를 표시하는 명령어
+plt.xlabel('length') #x축에 표시할 변수명을 설정하는 명령어
+plt.show() #산점도를 출력하는 명령어
+from sklearn.model_selection import train_test_split #패키지에서 특정 함수만 임포트하는 명령어
+train_input, test_input, train_target, test_target = train_test_split(perch_length, perch_weight, random_state=42) #perch_length의 데이터를 train_input과 test_input에, perch_weight의 데이터를 train_target과 test_target에 무작위로 나누어줌
+train_input = train_input.reshape(-1,1) #배열의 크기를 바꾸는 명령어. 크기에 -1을 지정하면 나머지 원소 개수로 모두 채워줌
+```
+🚨 주의: 사이킷런에 사용할 훈련 세트는 2차원 배열이어야 함. 따라서 reshape()를 통해 크기 변경.
+
+➁ 머신러닝 프로그램 훈련: 훈련 세트로 훈련 후 테스트 세트로 결정계수를 평가.
+```python
+#머신러닝 프로그램 훈련에서 사용되는 명령어
+
+from sklearn.neighbors import KNeighborsRegressor
+knr = KNeighborsRegressor()
+knr.fit(train_input, train_target) #주어진 데이터로 알고리즘을 훈련하는 명령어
+print(knr.score(test_input, test_target)) #주어진 데이터로 알고리즘의 결정계수를 평가, 결정계수를 출력하는 명령어
+from sklearn.metrics import mean_absolute_error
+test_prediction = knr.predict(test_input) #테스트 세트에 대한 예측을 하는 명령어
+mae = mean_absolute_error(test_target, test_prediction) #테스트 세트에 대한 평균 절댓값 오차를 계산하는 명령어. 이를 통해 결정계수가 얼마나 좋은지 가늠할 수 있음
+```
+📌 결정계수(R^2): 회귀를 평가하는 점수. 1 - (타깃 - 예측)^2/(타깃 - 평균)^2의 식으로 구함.
+
+➂ 과대적합•과소적합 해결: 훈련 세트와 테스트 세트의 결정계수 점수를 비교했을 때 훈련 세트가 너무 높은 **과대적합**, 그 반대이거나 두 점수가 모두 낮은 **과소적합**을 해결.
+- 과대적합의 해결: 모델을 덜 복잡하게 만들어 훈련 세트에 대한 의존도를 줄임. k-최근접 이웃의 경우 k값을 늘려서 해결.
+- 과소적합의 해결: 모델을 더 복잡하게 만들어 훈련 세트에 더 잘 맞게 만듦. k-최근접 이웃의 경우 k값을 줄여서 해결.
+```python
+#과대적합•과소적합 해결에서 사용되는 명령어
+
+knr.n_neighbors = 3 #k값을 3으로 설정하는 명령어
+```
+
+## <span style= 'background-color: #f1f8ff'>3-2: 선형 회귀
+☆ **k-최근접 이웃 회귀의 한계**: 가장 가까운 샘플을 찾아 타깃을 평균하기에 새로운 샘플이 훈련 세트의 범위를 벗어나면 엉뚱한 값을 예측할 수 있음.
+
+☆ **선형 회귀**: 특성과 타깃 사이의 관계를 가장 잘 낭타내는 선형 방정식을 찾아 결과를 예측함.
+```python
+#선형 회귀에서 사용되는 명령어
+
+from sklearn.linear_model import LinearRegression
+lr = LinearRegression()
+lr.fit(train_input, train_target) #주어진 데이터로 알고리즘을 훈련하는 명령어
+print(lr.coef_, lr.intercept_) #선형 방정식의 기울기와 y절편을 각각 출력하는 명령어
+plt.plot([15, 50], [15*lr.coef_+lr.intercept_, 50*lr.coef_+lr.intercept_]) #15에서 50까지 앞서 구한 기울기와 y절편으로 1차 방정식 그래프를 그리는 명령어
+```
+📌 사이킷런 모델 클래스의 메서드명: 사이킷런의 모델 클래스들은 훈련, 평가, 예측하는 메서드 이름이 모두 동일.
+
+📌 모델 파라미터: 머신러닝 알고리즘이 찾은 값. 즉 머신러닝 알고리즘의 훈련 과정은 최적의 모델 파라미터를 찾는 과정과 같음.
+
+📌 사례 기반 학습: 모델 파라미터 없이 훈련 세트를 저장하는 것이 훈련의 전부인 학습. (ex: k-최근접 이웃)
+
+☆ **선형 회귀의 한계**: 샘플들이 정확한 직선 분포가 아니라면 과소적합이 일어날 가능성이 큼. 아래 그래프에서 농어의 무게가 음수 값을 가질 것이라 예상하는 것처럼 현실에서 불가능한 예측이 일어날 가능성이 있음.
+![image](https://github.com/user-attachments/assets/793e867d-8c26-44a1-ac43-85583cd6ee6e)
+
+☆ **다항 회귀**: 다항식을 사용한 선형 회귀.
+```python
+#다항 회귀에서 사용되는 명령어
+
+train_poly = np.column_stack((train_input ** 2, train_input)) #훈련 세트를 제곱한 항을 추가하는 명령어
+test_poly = np.column_stack((test_input ** 2, test_input)) #테스트 세트를 제곱한 항을 추가하는 명령어
+lr = LinearRegression()
+lr.fit(train_poly, train_target) #주어진 데이터로 알고리즘을 훈련하는 명령어
+print(lr.coef_, lr.intercept_) #ax^2+bx+c에서 a,b,c를 각각 출력하는 명령어
+point = np.arrange(15, 50) #15에서 49까지 정수 배열을 만드는 명령어
+plt.plot(point, 1.01*point**2 - 21.6*point + 116.05) #15에서 49까지 2차 방정식 그래프를 그리는 명령어
+```
+
+☆ **다항 회귀의 한계**: 훈련 세트와 테스트 세트에 대한 점수가 선형 회귀보다는 크게 높아졌지만 여전히 과소적합이 남아있음.
+
+## <span style= 'background-color: #f1f8ff'>3-3: 특성 공학과 규제
+☆ **다중 회귀**: 여러 개의 특성을 사용한 선형 회귀. 특성이 2개일 경우 선형 회귀는 평면을 학습함. 특성이 많은 고차원으로 갈 수록 선형 회귀는 매우 복잡한 모델을 표현할 수 있음.
+![image](https://github.com/user-attachments/assets/8c23db29-2bca-45c7-8b6e-d47b1d69524d)
+⬆︎ 특성이 2개일 떄와 3개일 때의 선형 회귀 모형
+
+☆ **특성 공학**: 기존의 특성을 사용해 새로운 특성을 뽑아내는 작업. 예를 들어 이전 예제에서의 농어 길이를 제곱할 수 있고, 농어 길이와 농어 높이를 곱할 수도 있음.
+
+☆ **다중 회귀를 활용한 생선 무게 예측 프로그램**
+
+➀ 데이터 준비: 판다스를 활용하여 더 간단하게 데이터 준비.
+```python
+#데이터 준비에서 사용되는 명령어
+
+import pandas as pd
+df = pd.read_csv('htttps://bit.ly/perch_csv') #판다스의 핵심 데이터 구조인 데이터프레임을 다운로드 받아 나타내는 명령어
+perch_full = df.to_numpy #데이터프레임을 넘파이 배열로 변환하는 명령어
+import numpy as np
+perch_weight = np.array(
+    [5.9, 32.0, 40.0, ~~~~~, 1000.0]
+    ) #해당 리스트를 넘파이 배열로 변환시키는 명령어
+from sklearn.model_selection import train_test_split
+train_input, test_input, train_target, test_target = train_test_split(perch_full, perch_weight, random_state=42) #perch_full의 데이터를 train_input과 test_input에, perch_weight의 데이터를 train_target과 test_target에 무작위로 나누어줌
+```
+📌 CSV 파일: 판다스 데이터프레임을 만들기 위해 많이 사용하는 파일로 콤마로 나누어져 있는 텍스트 파일.
+
+➁ 변환기를 활용한 특성 준비: 사이킷런에서 특성을 만들거나 전처리하기 위해 제공하는 클래스인 변환기를 활용하여 다양한 특성들을 준비.
+```python
+#특성 준비에서 사용되는 명령어
+
+from sklearn.preprocessing import PlolynomialFeatures
+poly = PolynomialFeatures()
+poly = PolynomialFeatures(include_bias=False) #transform에서 출력하는 1을 지우기 위한 명령어
+poly.fit(train_input) #새롭게 만들 특성 조합을 찾는 명령어
+train_poly = poly.transform(train_input) #특성 train_input을 활용한 다양한 특성을 만드는 명령어
+poly.get_feature_names() #만들어진 특성이 어떤 입력의 조합으로 만들어졌는지 알려주는 명령어. 출력된 x0는 첫 번째 특성을 의미하고, x0^2은 첫 번째 특성의 제곱, x0x1은 첫 번째 특성과 두 번쨰 특성의 곱을 나타냄
+```
+🚨 주의: transform 전에는 꼭 fit을 사용해야함. 사이킷런의 일관된 api 때문에 두 단계로 나뉘어져 있음.
+
+📌 transform에서 1을 출력하는 이유: 선형 방정식의 절편은 1에 곱해지는 계수라고 볼 수 있음. 사이킷런의 선형 모델은 자동으로 절편을 추가하기에 1을 없애도 됨.
+
+➂ 다중 회귀 모델 훈련: 여러 개의 특성을 사용하여 선형 회귀를 수행하는 것과 같음.
+```python
+#다중 회귀 모델 훈련에서 사용되는 명령어
+
+from sklearn.linear_model import LinearRegression
+lr = LinearRegression
+lr.fit(train_poly, train_target)
+```
+📌 결과: 훈련 세트에 대한 점수가 높아져 과소적합 문제가 해결됨.
+
+🚨 주의: PolynomialFeatures 클래스의 degree 매개변수를 사용하면 필요한 고차항의 최대 차수를 지정할 수 있음. **다만** 너무 고차원이 될 경우 훈련 세트에 너무 과대적합되므로 테스트 세트에서는 형편없는 점수를 만들 수 있음.
+
+☆ **규제**: 머신러닝 모델이 훈련 세트를 너무 과도하게 학습하지 못하도록 하는 것. 선형 회귀 모델의 경우 특성에 곱해지는 계수의 크기를 작게 만들어 행할 수 있음.
+![image](https://github.com/user-attachments/assets/2da1ed9a-2bbe-47ee-b294-d78cad23fe88)
+⬆︎ 선형 회귀 규제의 원리
+
+📌 규제의 장점: 많은 특성을 사용했음에도 불구하고 훈련 세트에 너무 과대적합되지 않아 테스트 세트에서도 좋은 성능을 낼 수 있음.
+
+🚨 주의: 특성의 스케일이 정규화되지 않으면 계수 값에 차이가 나게 되기에 규제를 적용하기 전에 먼저 정규화를 해야함.
+
+```python
+#StandardScaler를 활용한 정규화
+
+from sklearn.preprocessing import StandardScaler
+ss = StandardScaler()
+ss.fit(train_poly) #변환기 사용전 훈련을 위한 명령어
+train_scaled = ss.transform(train_poly) #표준점수로 변환시키는 명령어
+test_scaled = ss.transform(test_poly)
+```
+
+☆ **릿지 회귀**: 계수를 제곱한 값을 기준으로 규제를 적용한 선형 회귀 모델.
+```python
+#릿지 회귀에서 사용되는 명령어
+
+from sklearn.linear_model import Ridge
+ridge = Ridge()
+ridge.fit(train_scaled, train_target)
+
+#alpha를 활용한 규제의 강도 조절(alpha가 커지며 규제 강도가 세짐)
+
+import matplotlin.pyplot as plt
+train_score = [] #alpha 값을 바꿀 때마다 score() 메서드의 결과를 저장할 리스트를 생성하는 명령어
+test_score = []
+alpha_list = [0.001, 0.01, 0.1, 1, 10, 100] #사용할 alpha의 리스트를 지정하는 명령어
+for alpha in alpha_list:
+    ridge = Ridge(alpha=alpha) #릿지 모델을 만드는 명령어
+    ridge.fit(train_scaled, train_target)
+    train_score.append(ridege.score(train_scaled, train_target)) #훈련 점수를 저장
+    train_score.append(ridge.score(test_scaled, test_target))
+
+plt.plot(np.log10(alpha_list), train_score)
+plt.plot(np.log10(alpha_list), test_score)
+plt.show()
+```
+
+![image](https://github.com/user-attachments/assets/aba768c9-5207-4e3a-a298-6674ea2ae7b3)
+⬆︎ alpha 값에 따른 훈련 세트와 테스트 세트의 점수를 나타낸 그래프. 두 그래프가 가장 가깝고 테스트 세트의 점수가 가장 높은 -1이 가장 적절한 alpha 값.
+
+☆ **라쏘 회귀**: 계수의 절댓값을 기준으로 규제를 적용한 선형 회귀 모델. 계수를 0으로 만들 수도 있음.
+```python
+#라쏘 회귀에서 사용되는 명령어
+
+from sklearn.linear_model import Lasso
+lasso = Lasso()
+lasso.fit(train_scaled, train_target)
+
+#alpha를 활용한 규제의 강도 조절(alpha가 커지며 규제 강도가 세짐)
+
+train_score = [] #alpha 값을 바꿀 때마다 score() 메서드의 결과를 저장할 리스트를 생성하는 명령어
+test_score = []
+alpha_list = [0.001, 0.01, 0.1, 1, 10, 100] #사용할 alpha의 리스트를 지정하는 명령어
+for alpha in alpha_list:
+    lasso = Lasso(alpha=alpha, max_iter=10000) #라쏘 모델을 만드는 명령어. max_iter는 반복 횟수를 늘리기 위한 명령어.
+    lasso.fit(train_scaled, train_target)
+    train_score.append(lasso.score(train_scaled, train_target)) #훈련 점수를 저장
+    train_score.append(lasso.score(test_scaled, test_target))
+
+plt.plot(np.log10(alpha_list), train_score)
+plt.plot(np.log10(alpha_list), test_score)
+plt.show()
+```
+
+![image](https://github.com/user-attachments/assets/4f09adf0-29f5-486c-8b8a-82b43b0fee68)
+⬆︎ alpha 값에 따른 훈련 세트와 테스트 세트의 점수를 나타낸 그래프. 두 그래프가 가장 가깝고 테스트 세트의 점수가 가장 높은 1이 가장 적절한 alpha 값.
+
+### 출처 : 혼자 공부하는 머신러닝+딥러닝
