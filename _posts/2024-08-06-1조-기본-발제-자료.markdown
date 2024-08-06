@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "혼자 공부하는 머신러닝+딥러닝 : 3. 회귀 알고리즘과 모델 규제"
-date: 2024-08-05 03:01:45 +0900
+title: "1조 기본 발제 자료"
+date: 2024-08-06 03:01:45 +0900
 categories: 발제-자료
 ---
 ## <span style= 'background-color: #f1f8ff'>3-1: k-최근접 이웃 회귀
@@ -200,6 +200,7 @@ print(train_poly.shape)
 
 📌 transform에서 1을 출력하는 이유: 선형 방정식의 절편은 1에 곱해지는 계수라고 볼 수 있음. 사이킷런의 선형 모델은 자동으로 절편을 추가하기에 1을 없애도 됨.
 
+⊕ 9개의 특성의 입력 조합 확인
 ```python
 poly.get_feature_names()
 ```
