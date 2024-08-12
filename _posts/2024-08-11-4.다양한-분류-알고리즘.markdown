@@ -1,0 +1,252 @@
+---
+layout: post
+title: "혼자 공부하는 머신러닝+딥러닝 : 4. 다양한 분류 알고리즘"
+date: 2024-08-05 03:01:45 +0900
+categories: 혼자_공부하는_머신러닝+딥러닝
+---
+## <span style= 'background-color: #f1f8ff'>4-1: 로지스틱 회귀
+☆ **k-최근접 이웃을 활용한 럭키백의 확률 문제**: 이웃의 클래스 비율을 확률이라 출력하면 될 것이라는 아이디어에서 출발
+
+➀ 데이터 준비: 판다스 활용한 csv 데이터 읽기 -> 일부 데이터 프레임을 넘파이 배열로 변환하여 입력값 준비 -> 나머지 데이터프레임을 넘파이 배열로 변환하여 타깃값 준비 -> train_test_split을 활용하여 훈련 세트와 테스트 세트 준비 -> StandardScaler를 활용하여 표준화 전처리
+
+```python
+#데이터 준비에서 사용되는 명령어
+
+import pandas as pd #함수 사용을 위해 불러오는 명령어
+fish = pd.read_csv('https://bit.ly/fish_csv') #판다스의 핵심 데이터 구조인 데이터프레임을 다운로드 받아 나타내는 명령어
+fish.head() #처음 5개 행을 출력하는 명령어
+
+print(pd.unique(fish['Species'])) #특정 열의 값을 추출하는 명령어
+
+fish_input = fish[['Weight','Length','Diagonal','Height','Width']].to_numpy() #데이터프레임에서 원하는 열을 선택하여 넘파이 배열로 변환하는 명령어
+
+from sklearn.model_selection import train_test_split
+train_input, test_input, train_target, test_target = train_test_split(fish_input, fish_target, random_state=42)
+
+from sklearn.preprocessing import StandardScaler
+ss = StandardScaler()
+ss.fit(train_input) #변환기 사용전 훈련을 위한 명령어
+train_scaled = ss.transform(train_input) #표준점수로 변환시키는 명령어
+```
+
+➁ k-최근접 이웃 분류기의 확률 예측: KNeighborsClassifier 클래스 객체 생성 -> 훈련 세트를 통한 훈련 -> 타깃값의 순서 정렬 -> 넘파이를 활용하여 확률값 반환
+
+```python
+#k-최근접 이웃 분류기의 확률 예측에서 사용되는 명령어
+
+from sklearn.neighbors import KNeighborsClassifier
+kn = KNeighborsClassifier(n_neighbors=3)
+kn.fit(train_scaled, train_target)
+
+print(kn.classes_) #KNeighborsClassifier에서 정렬된 타깃값을 불러오는 명령어
+
+print(kn.predict(test_scaled[:5])) #테스트 세트에 있는 처음 5개 샘플의 타깃값을 예측하는 명령어
+
+import numpy as np
+proba = kn.predict_proba(test_scaled[:5]) #클래스별 확률값을 반환하는 명령어
+print(np.round(proba, decimals=4)) #주어진 숫자를 소수점 자릿수에 맞춰서 반올림하는 명령어. 4로 지정한 현재는 다섯 번쨰 자리에서 반올림하여 출력함
+
+distances, indexes = kn.kneighbors(test_scaled[3:4]) #최근접 이웃의 클래스를 저장하는 명령어. 2차원 배열을 만들기 위해 슬라이싱을 활용
+print(train_target[indexes]) #최근접 이웃의 클래스를 출력하는 명령어
+```
+
+📌 다중 분류: 타깃 데이터에 2개 이상의 클래스가 포함된 문제. 사이킷런을 활용하면 문자열로 된 타깃값을 그대로 사용할 수 있음.
+
+📌 predict_proba() 메서드의 출력 순서: 알파벳 순서로, classes_에 저장된 속성과 같음.
+
+📌 슬라이싱의 특징: 하나의 샘플만 선택해도 항상 2차원 배열이 만들어짐.
+
+🚨 주의: 타깃값을 그대로 사이킷런 모델에 전달하면 순서가 알파벳 순서로 매겨짐.
+
+☆ **k-최근접 이웃을 활용한 럭키백의 확률 문제 해결의 한계**: 정해진 숫자의 최근접 이웃을 사용하기 때문에 가능한 확률이 한정적임.
+
+☆ **로지스틱 회귀**: 분류 모델의 하나로 선형 방정식을 학습함.
+![image](https://github.com/user-attachments/assets/820c40e2-5f9f-4e7b-b215-19912b2c819e)
+
+⬆︎ 로지스틱 회귀가 학습하는 선형 방정식의 예시
+
+☆ **시그모이드 함수 (=로지스틱 함수)**: z가 아주 큰 음수일 때 0이 되고, z가 아주 큰 양수일 때 1이 되게 변환할 수 있게 해주는 함수. 주로 이진 분류에서 사용. z값을 하나만 계산.
+![image](https://github.com/user-attachments/assets/76731a42-b329-444c-b6fc-37fc6861ef78)
+
+⬆︎ 시그모이드 함수의 원리
+
+```python
+#넘파이를 활용한 시그모이드 함수 그래프 작성
+
+import numpy as np
+import matplotlib.pyplot as plt
+z = np.arange(-5, 5, 0.1) #정수 배열을 만드는 명령어
+phi = 1 / (1 + np.exp(-z)) #지수 함수를 계산하는 명령어
+plt.plot(z, phi)
+plt.show()
+```
+➡︎
+![image](https://github.com/user-attachments/assets/9cf777b1-43b4-4ec2-8298-f5b3f8fac62d)
+
+☆ **소프트맥스 함수**: 여러 개의 선형 방정식의 출력값을 0~1 사이로 압축하고 전체 합이 1이 되도록 만드는 함수. 주로 다중 분류에서 사용. z값을 클래스의 갯수만큼 계산.
+![image](https://github.com/user-attachments/assets/4fc07bc8-babb-442d-9017-fdb53894143d)
+
+⬆︎ 소프트맥스 함수의 원리
+
+☆ **로지스틱 회귀를 활용한 이진 분류 수행**
+
+➀ 데이터 준비: 불리언 인덱싱을 활용해 훈륜 세트에서 도미와 빙어의 행만 골라냄.
+
+```python
+#데이터 준비에서 사용되는 명령어
+
+bream_smelt_indexes = (train_target == 'Bream') | (train_target == 'Smelt') #train_target 배열에서 Bream과 Smelt 행만 골라내는 명령어
+train_bream_smelt = train_scaled[bream_smelt_indexes] #train_scaled 배열에 불리언 인덱싱을 적용하는 명령어
+```
+
+➁ 머신러닝 프로그램 훈련
+```python
+#머신러닝 프로그램 훈련에서 사용되는 명령어
+
+from sklearn.linear_model import LogisticRegression
+lr = LogisticRegression()
+lr.fit(train_bream_smelt, target_bream_smelt) #로지스틱 회귀를 활용해 훈련하는 명령어
+
+print(lr.predict(train_bream_smelt[:5])) #처음 5개의 샘플을 예측하는 명령어. 출력값의 첫 번째 열이 0에 대한 확률, 두 번째 열이 1에 대한 확률을 의미
+
+print(lr.classes_) #KNeighborsClassifier에서 정렬된 타깃값을 불러오는 명령어
+```
+
+➂ 선형 방정식의 모습 확인
+```python
+#선형 방정식의 모습 확인에서 사용되는 명령어
+
+print(lr.coef_, lr.intercept_)
+
+decisions = lr.decision_function(train_bream_smelt[:5]) #처음 5개 샘플의 z값을 출력하는 명령어
+from scipy.special import expit
+print(expit(dicisions)) #z 값을 시그모이드 함수에 통과시켜 확률을 출력하는 명령어. expit에 시그모이드 함수가 저장되어 있음
+```
+
+☆ **로지스틱 회귀를 활용한 다중 분류 수행**
+
+➀ 머신러닝 프로그램 훈련: 머신러닝 프로그램 훈련 -> 과대•과소적합 여부 확인 -> 예측 -> 확률값 반환
+```python
+#머신러닝 프로그램 훈련에서 사용되는 명령어
+
+lr = LogisticRegression(C=20, max_iter=1000) #규제의 정도와 반복 횟수를 지정하는 명령어. C값이 커질 수록 규제가 완화됨
+lr.fit(train_scaled, train_target)
+
+proba = lr.predict_proba(test_scaled[:5]) #클래스별 확률값을 반환하는 명령어
+print(np.round(proba, decimals=3)) #주어진 숫자를 소수점 자릿수에 맞춰서 반올림하는 명령어. 3으로 지정한 현재는 네 번쨰 자리에서 반올림하여 출력함
+
+print(lr.classes_)
+```
+
+➁ 선형 방정식의 모습 확인
+```python
+#선형 방정식의 모습 확인에서 사용되는 명령어
+
+decision = lr.decision_function(test_scaled[:5]) #처음 5개 샘플의 z값들을 출력하는 명령어
+print(np.round(decision, decimals=2)) #주어진 숫자를 소수점 자릿수에 맞춰서 반올림하는 명령어. 2로 지정한 현재는 세 번쨰 자리에서 반올림하여 출력함
+
+from scipy.special import softmax
+proba = softmax(decision, axis=1) #클래스별 확률값을 반환하는 명령어. axis=1로 지정하여 각 샘플에 대해 소프트맥스를 계산함.
+print(np.round(proba, decimals=3))
+```
+
+## <span style= 'background-color: #f1f8ff'>4-2: 확률적 경사 하강법
+☆ **점진적 학습**: 앞서 훈련한 모델을 버리지 않고 새로운 데이터에 대해서만 조금씩 더 훈련하는 학습 방식.
+
+1.  **확률적 경사 하강법**: 대표적인 점진적 학습 알고리즘. 훈련 세트에서 랜덤하게 하나의 샘플을 선택하여 점진적으로 만족할 만한 결과를 찾는 방식으로 해당 과정을 만족할 만한 결과를 찾을 때까지 반복함. 이때 훈련 세트를 한 번 모두 사용하는 과정을 **에포크**라고 부름.
+
+2.  **미니배치 경사 하강법**: 여러 개의 샘플을 사용해 경사 하강법을 수행하는 방식.
+
+3. **배치 경사 하강법**: 전체 샘플을 사용해 경사 하강법을 수행하는 방식. 가장 안정적이지만 전체 데이터를 사용하기에 컴퓨터 자원을 많이 사용함.
+
+![image](https://github.com/user-attachments/assets/7a2dde1f-4f5b-4e17-a2df-da1fdebc1ac5)
+⬆︎ 경사 하강법의 이해
+
+☆ **손실 함수**: 어떤 문제에서 머신러닝 알고리즘이 얼마나 엉터리인지 측정하는 기준. 즉 손실 함수가 작을수록 좋음. 손실 함수를 비용 함수라고도 부름(엄밀히 따지면 손실 함수는 샘플 하나에 대한 손실을 정의하고 비용 함수는 훈련 세트에 있는 모든 샘플에 대한 손실 함수의 합을 말하지만 보통 이 둘을 엄격히 구분하지 않음.).
+
+📌 손실 함수의 특징: 손실 함수는 연속적이어야 함. 하여 정확도는 손실 함수로 사용하기 부적절함.
+
+☆ **로지스틱 손실 함수(=이진 크로스엔트로피 함수)**: 양성 클래스일 때 손실은 -log(예측 확률), 음성 클래스일 때 손실은 -log(1-예측 확률)로 계산하는 손실 함수.
+
+☆ **SGDClassifier**: 사이킷런에서 확률적 경사 하강법을 제공하는 대표적인 분류용 클래스.
+
+```python
+#SGDClassifier의 적용
+
+import pandas as pd
+fish = pd.read_csv('https://bit.ly/fish_csv')
+
+fish_input = fish[['Weight','Length','Diagonal','Height','Width']].to_numpy()
+fish_target = fish['Species'].to_numpy()
+
+from sklearn.model_selection import train_test_split
+train_input, test_input, train_target, test_target = train_test_split(fish_input, fish_target, ramdom_state=42)
+
+from sklearn.preprocessing import StandardScaler
+ss = StandardScaler()
+ss.fit(train_input) #훈련 세트에서 학습한 통계 값으로 테스트 세트도 변환하기에 학습을 훈련 세트로 함
+train_scaled = ss.transform(train_input)
+test_scaled = ss.transform(test_input)
+
+from sklearn.linear_model import SGDClassifier
+
+sc = SGDClassifier(loss='log', max_iter=10, random_state=42) #손실 함수의 종류를 log로 지정하고 반복 횟수 10으로 지정
+sc.fit(train_scaled, train_target)
+print(sc.score(train_scaled, train_target))
+print(sc.score(test_scaled, test_target))
+```
+➡︎ 0.773109243697479    
+➡︎ 0.775 (반복 횟수의 부족으로 인한 낮은 정확도)
+
+```python
+#정확도를 높이기 위한 에포크 반복
+
+sc.partial_fit(train_scaled, train_target) #호출할 때마다 1 에포크씩 이어서 훈련하는 명령어
+print(sc.score(train_scaled, train_target))
+print(sc.score(test_scaled, test_target))
+```
+➡︎ 0.8151260504201681   
+➡︎ 0.825 (정확도의 향상)
+
+☆ **에포크와 과대/과소적합**: 에포크 횟수가 적으면 훈련 세트와 테스트 세트 모두에 잘 맞지 않는 과소적합일 가능성이 높고, 에포크 횟수가 많으면 훈련 세트에 너무 잘 맞게 된 과대적합일 가능성이 높음.
+
+![image](https://github.com/user-attachments/assets/aa11c569-1aa3-460e-af6e-be3a23bdc753)
+⬆︎ 에포크가 진행됨에 따른 모델의 정확도
+
+⊕ 조기 종료: 과대적합이 시작하기 전에 훈련을 멈추는 것.
+
+```python
+#적절한 조기 종료 지점 찾기
+
+import numpy as np
+sc = SGDClassifier(loss='log', random_state=42)
+train_score = [] #반복마다 훈련 세트의 점수를 계산하여 저장할 리스트 생성
+test_score = [] #반복마다 테스트 세트의 점수를 계산하여 저장할 리스트 생성
+classes = np.unique(train_target) #train_target의 목록을 생성
+
+for _ in range(0, 300): #_는 나중에 사용하지 않고 그냥 버리는 값을 넣어두는 용도로 0에서 299까지 반복 횟수를 임시 저장함
+    sc.partial_fit(train_scaled, train_target, classes=classes)
+    train_score.append(sc.score(train_scaled, train_target)) #append를 이용하여 train_score 리스트에 매번 새 점수를 덧붙임
+    test_score.append(sc.score(test_scaled, test_target))
+
+import matplotlib.pyplot as plt
+plt.plot(train_score)
+plt.plot(test_score)
+plt.show()
+```
+➡︎
+![image](https://github.com/user-attachments/assets/ee91e979-a603-4d5b-92d8-dc5c55faf9e4)
+
+```python
+#적절한 반복 횟수로 모델 훈련
+
+sc = SGDClassifier(loss='log', max_iter=100, tol=None, random_state=42) #sc는 일정 에포크 동안 성능이 향상되지 않으면 더 훈련하지 않고 자동으로 멈춤. tol로 향상될 최솟값을 지정하는데 여기서는 None으로 설정하여 반복을 무조건 100번 하도록 함.
+print(sc.score(train_scaled, train_target))
+print(sc.score(test_scaled, test_target))
+```
+➡︎ 0.957983193277311    
+➡︎ 0.925
+
+⊕ 힌지 손실: SGDClassifier의 loss 매개변수의 기본값은 'hinge'로 힌지 손실은 서포트 벡터 머신이라는 머신러닝 알고리즘을 위한 손실 함수임.
+
+### 출처 : 혼자 공부하는 머신러닝+딥러닝
