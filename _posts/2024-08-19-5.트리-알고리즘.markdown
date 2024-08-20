@@ -1,0 +1,444 @@
+---
+layout: post
+title: "혼자 공부하는 머신러닝+딥러닝 : 5. 트리 알고리즘"
+date: 2024-08-20 03:01:45 +0900
+categories: 혼자_공부하는_머신러닝+딥러닝
+---
+## <span style= 'background-color: #f1f8ff'>5-1: 결정 트리
+**☆ 로지스틱 회귀로 와인 분류하기: class가 0이면 레드 와인, 1이면 화이트 와인.**
+
+```python
+#로지스틱 회귀를 이용한 와인 분류 과정 1
+
+import pandas as pd
+wine = pd.read_csv('https://bit.ly/wine-date')
+
+wine.info() #각 열의 데이터 타입과 누락된 데이터가 있는지 확인
+```
+➡︎
+![image](https://github.com/user-attachments/assets/85fe66c8-055c-48fe-8221-2d110e3321f7)
+
+⊕ 해석: 6497 entries를 통해 6,497개의 샘플이 있음을 확인. 4개의 열이 모두 float인 것을 보아 모두 실숫값. Non-Null Count가 모두 6497이므로 누락된 값은 없음.
+
+📌 누락된 값이 있는 경우: 해당 데이터를 버리거나 평균값으로 채운 후 사용.
+
+```python
+#로지스틱 회귀를 이용한 와인 분류 과정 2
+
+wine.describe() #열에 대한 간략한 통계를 출력
+```
+![image](https://github.com/user-attachments/assets/10eb1b08-fd59-4741-9b38-f0122d0a53c7)
+
+```python
+#로지스틱 회귀를 이용한 와인 분류 과정 3
+
+data = wine[['alcohol', 'sugar', 'pH']].to_numpy()
+target = wine['class'].to_numpy()
+
+from sklearn.model_selection import train_test_split
+train_input, test_input, train_target, test_target = train_test_split(data, target, test_size=0.2, random_state=42)
+
+from sklearn.preprocessing import StandardScaler
+ss = StandardScaler()
+ss.fit(train_input)
+train_scaled = ss.transform(train_input)
+test_scaled = ss.transform(test_input)
+
+from sklearn.linear_model import LogisticRegression
+lr = LogisticRegression()
+lr.fit(train_scaled, train_target)
+print(lr.score(train_scaled, train_target))
+print(lr.score(test_scaled, test_target))
+```
+➡︎ 0.7808350971714451
+➡︎ 0.7776923076923077
+
+**☆ 결정 트리: 알고리즘을 시각적으로 표현하여 의사를 결정하거나 시간 복잡도를 증명하는 데 사용하는 트리.**
+
+```python
+#결정 트리 모델 훈련
+
+from sklearn.tree import DecisionTreeClassifier
+dt = DecisionTreeClassifier(random_state=42)
+dt.fit(train_scaled, train_target)
+print(dt.score(train_scaled, train_target))
+print(dt.score(test_scaled, test_target))
+```
+➡︎ 0.996921300750433
+➡︎ 0.8592307692307692 (과대적합)
+
+```python
+#결정 트리 그림 출력
+
+import matplotlib.pyplot as plt
+from sklearn.tree import plot_tree
+plt.figure(figsize=(10,7))
+plot_tree(dt)
+plt.show()
+```
+➡︎
+![image](https://github.com/user-attachments/assets/b2a2dc90-8b7c-437e-a440-9ad37d8bb705)
+
+📌 노드: 결정 트리를 구성하는 핵심 요소로 훈련 데이터의 특성에 대한 테스트를 표현.
+
+```python
+#결정 트리 그림 간결히 출력
+
+plt.figure(figsize=(10,7))
+plot_tree(dt, max_depth=1, filled=True, feature_names=['alcohol', 'sugar', 'pH']) 
+#max_depth를 1로 설정하면 루트 노드를 제외하고 하나의 노드를 더 확장하여 그림
+#filled를 True로 지정하면 클래스마다 색깔을 부여하고, 어떤 클래스의 비율이 높아지면 점점 진한 색으로 표시함
+plt.show()
+```
+➡︎
+![image](https://github.com/user-attachments/assets/fa6d30d1-02b6-4881-82da-e525789882da)
+
+(value 리스트의 왼쪽이 음성 클래스, 오른쪽이 양성 클래스)
+
+📌 결정 트리의 예측 방법: 리프 노드에서 가장 많은 클래스가 예측 클래스가 됨.
+
+**☆ 지니 불순도: criterion 매개변수로 노드에서 데이터를 분할할 기준을 정하는데, DecisionTreeClassifier 클래스의 criterion 매개변수의 기본값이 'gini'임.**
+
+![image](https://github.com/user-attachments/assets/a3c448c5-3158-4a1f-a5b2-c7d8c448861f)
+⬆︎ 지니 불순도의 계산
+
+📌 결정 트리의 트리 성장: 부모 노드와 자식 노드의 불순도 차이가 가능한 크도록 트리를 성장시킴. 이때 부모와 자식 노드 사이의 불순도 차이를 **정보 이득**이라고 부름.
+
+![image](https://github.com/user-attachments/assets/7ede413d-fe51-4c83-8cef-e31f55592f5a)
+⬆︎ 왼쪽 노드로 2,922개의 샘플이 이동하고 오른쪽 노드로 2,275개의 샘플이 이동했을 경우 불순도의 차이 계산
+
+⊕ 엔트로피 불순도: DecisionTreeClassifier 클래스에서 제공하는 또다른 criterion 매개변수의 종류. 제곱이 아닌 밑이 2인 로그를 사용하여 곱함.
+
+**☆ 가지치기: 과대적합을 막기 위한 방법. 트리의 최대 깊이를 지정하면 가장 간단히 가지치기를 할 수 있음.**
+
+```python
+#가지치기
+
+dt = DecisionTreeClassifier(max_depth=3, random_state=42)
+dt.fit(train_scaled, train_target)
+print(dt.score(train_scaled, train_target))
+print(dt.score(test_scaled, test_target))
+```
+➡︎ 0.8454877814123533
+➡︎ 0.8415384615384616 (과대적합 완화)
+
+```python
+#가지치기한 모델 트리 그래프로 나타내기
+
+plt.flgure(figsize=(20,15))
+plot_tree(dt, filled=True, feature_names=['alcohol', 'sugar', 'pH'])
+plt.show()
+```
+➡︎
+![image](https://github.com/user-attachments/assets/4abec3d7-964b-4806-bcd5-f6306f145288)
+
+⊕ 결정 트리의 장점: 결정 트리 알고리즘은 불순도를 기준으로 샘플을 나누고, 불순도는 클래스별 비율을 가지고 계산함. 즉 특성값의 스케일은 계산에 영향을 미치지 않으므로 표준화 전처리가 필요 없음.
+
+```python
+#표준화 전처리 하지 않은 모델의 트리 작성
+
+dt = DecisionTreeClassifier(max_depth=3, random_state=42)
+dt.fit(train_input, train_target)
+
+plt.figure(figsize=(20,15))
+plot_tree(dt, filled=True, feature_names=['alcohol', 'sugar', 'pH'])
+plt.show()
+```
+➡︎
+![image](https://github.com/user-attachments/assets/ff47dfb8-f8d2-4e23-8d71-55f1fe5962c8)
+
+⊕ 결정 트리의 특징: 어떤 특성이 가장 유용한지 나타내는 특성 중요도를 계산해줌.
+
+```python
+#특성 중요도 출력
+
+print(dt.feature_importances_)
+```
+➡︎ [0.12345626 0.86862934 0.0079144]
+
+## <span style= 'background-color: #f1f8ff'>5-2: 교차 검증과 그리드 서치
+**☆ 검증 세트: 테스트 세트를 사용하지 않고 모델의 과대•과소적합 여부를 판단하기 위해 훈련 세트를 또다시 나눈 데이터 세트.**
+
+```python
+#검증 세트 생성
+
+import pandas as pd
+wine = pd.read_csv('https://bit.ly/wine-data')
+
+data = wine[['alcohol', 'sugar', 'pH']].to_numpy()
+target = wine['class'].to_numpy()
+
+from sklearn.model_selection import train_test_split
+train_input, test_input, train_target, test_target = train_test_split(data, target, test_size=0.2, random_state=42)
+
+sub_input, val_input, sub_target, val_target = train_test_split(train_input, train_target, test_size=0.2, random_state=42)
+
+#검증 세트를 통한 평가
+
+from sklearn.tree import DecisionTreeClassifier
+dt = DecisionTreeClassifier(random_state=42)
+dt.fit(sub_input, sub_target)
+print(dt.score(sub_input, sub_target))
+print(dt.score(val_input, val_target))
+```
+➡︎ 0.9971133028626413
+➡︎ 0.864423076923077 (과대적합)
+
+**☆ 교차 검증: 검증 세트를 떼어 내어 평가하는 과정을 여러 번 반복. 이후 점수들을 평균하여 최종 검증 점수를 얻음**
+
+![image](https://github.com/user-attachments/assets/cee90f11-f165-4ced-8797-75eadc67b554)
+⬆︎ 3-폴드 교차 검증의 원리 
+
+```python
+#교차 검증 실습
+
+from sklearn.model_selection import cross_validate
+scores = cross_validate(dt, train_input, train_target)
+print(scores)
+```
+➡︎ 
+![image](https://github.com/user-attachments/assets/3bb36cfd-4d5f-4ad5-9fc9-4995c8a281a2)
+
+(fit_time, score_time은 각각 모델을 훈련하는 시간과 검증하는 시간을 의미. cross_validate() 함수는 5-폴드 교차 검증을 수행하기에 각 키마다 5개의 숫자가 담겨 있음.)
+
+📌 교차 검증 최종 점수: test_score 키에 담긴 5개의 점수를 평균하여 얻을 수 있음.
+
+```python
+#교차 검증 최종 점수 출력
+
+import numpy as np
+print(np.mean(scores['test_score']))
+```
+➡︎ 0.855300214703487
+
+🚨 주의: cross_validate()는 훈련 세트를 섞어 폴드를 나누지 않음. 교차 검증을 할 때 훈련 세트를 섞으려면 분할기를 지정해야함. cross_validate()는 회귀 모델일 경우 KFold 분할기를 사용하고 분류 모델일 경우 StratifiedKFold 분할기를 사용.
+
+```python
+#분할기 지정
+
+from sklearn.model_selection import StratifiedKFold
+scores = cross_validate(dt, train_input, train_target, cv=StratifiedKFold())
+print(np.mean(scores['test_score']))
+```
+➡︎ 0.8574181117533719
+
+⊕ 10-폴드 교차 검증 수행 방법
+
+```python
+splitter = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
+scores = cross_validate(dt, train_input, train_target, cv=splitter)
+```
+
+**☆ 하이퍼파라미터 튜닝: 모델이 학습할 수 없어서 사용자가 지정해야만 하는 파라미터를 하이퍼파라미터라고 함. 이러한 하이퍼파라미터들은 서로 영향을 미치기에 동시에 바꿔가며 최적의 값을 찾아내야 함.**
+
+```python
+#그리드 서치를 이용한 하이퍼파라미터 튜닝
+#min_impurity_decrease는 노드를 분할하기 위한 불순도 감소 최소량을 지정
+
+from sklearn.model_selection import GridSearchCV
+params = {'min_impurity_decrease': [0.0001, 0.0002, 0.0003, 0.0004, 0.0005]}
+
+gs = GridSearchCV(DecisionTreeClassifier(random_state=42), params,n_jobs=-1) #n_jobs를 지정해 병렬 실행에 사용할 CPU 코어 수를 지정. -1로 지정할 경우 시스템에 있는 모든 코어를 사용함
+
+gs.fit(train_input, train_target)
+
+dt = gs.best_estimator_ #최적의 모델이 저장된 속성
+print(dt.score(train_input, train_target))
+print(gs.best_params_)
+print(gs.cv_results_['mean_test_score']) #평균 점수 출력
+```
+➡︎ 0.9615162593804117
+➡︎ {'min_impurity_decrease': 0.0001}
+➡︎ [0.86819297 0.86453617 0.86492226 0.86780891 0.86761605]
+
+📌 그리드 서치의 장점: 하이퍼파라미터 탐색과 교차 검증을 한 번에 수행하고, 훈련이 끝나면 검증 점수가 가장 높은 모델의 매개변수 조합으로 전체 훈련 세트에서 자동으로 다시 모델을 훈련함.
+
+```python
+#argmax() 함수를 활용한 최적 매개변수 출력
+
+best_index = np.argmax(gs.cv_results_['mean_test_score'])
+print(gs.cv_results_['params'][best_index])
+```
+➡︎ {'min_impurity_decrease': 0.0001}
+
+```python
+#복잡한 매개변수 조합 탐색
+#min_samples_split은 노드를 나누기 위한 최소 샘플 수
+
+params = {'min_impurity_decrease': np.arange(0.0001, 0.001, 0.0001), #0.0001에서 0.001이 될 때까지 0.0001씩 더한 배열. 0.001은 배열에 포함되지 않음
+'max_depth': range(5, 20, 1), #5에서 20이 될 때까지 1씩 더한 배열. 20은 배열에 포함되지 않음
+'min_samples_split': range(2, 100, 10) #2에서 100이 될 때까지 10씩 더한 배열. 100은 포함되지 않음
+}
+
+gs = GridSearchCV(DecisionTreeClassifier(random_state=42), params, n_jobs=-1)
+gs.fit(train_input, train_target)
+
+print(gs.best_params_)
+```
+➡︎ {'max_depth': 14, 'min_impurity_decrease': 0.0004, 'min_samples_split': 12}
+
+```python
+#최상의 교차 검증 점수 출력
+
+print(np.max(gs.cv_results_['mean_test_score']))
+```
+➡︎ 0.8683865773302731
+
+📌 arange와 range의 차이: range는 정수만 사용 가능.
+
+**☆ 랜덤 서치: 임의의 하이퍼파라미터를 선정하는 과정을 통해 최적의 해를 찾아가는 기법. 랜덤 서치에는 매개변수 값의 목록을 전달하는 것이 아니라 매개변수를 샘플링할 수 있는 확률 분포 객체를 전달함.**
+
+```python
+#랜덤 서치 실습 1
+
+from scipy.stats import uniform, randint #두 클래스 모두 주어진 범위에서 고르게 값을 선정함. uniform은 실숫값을 뽑고 randint는 정숫값을 뽑음
+
+rgen = randint(0, 10)
+rgen.rvs(10)
+```
+➡︎ array([6, 4, 2, 2, 7, 7, 0, 0, 5, 4])
+
+```python
+#랜덤 서치 실습 2
+
+np.unique(rgen.rvs(1000), return_counts=True)
+```
+➡︎ 
+(array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
+array([ 98, 94, 99, 93, 93, 92, 111, 118, 105, 97]))
+
+⊕ uniform 클래스의 사용법도 동일.
+
+```python
+#랜덤 서치 실습 3
+#min_samples_leaf는 리프 노드가 되기 위한 최소 샘플의 개수. 이 값보다 작을 경우 노드를 분할하지 않음.
+
+params = {'min_impurity_decrease': uniform(0.0001, 0.001),
+'max_depth': randint(20, 50),
+'min_samples_split': randint(2,25),
+'min_samples_leaf': randint(1, 25),
+}
+
+from sklearn.model_selection import RandomizedSearchCV
+gs = RandomizedSearchCV(DecisionTreeClassifier(random_state=42), params, n_iter=100, n_jobs=-1, random_state=42) #n_iter로 샘플링 횟수를 지정
+gs.fit(train_input, train_target)
+
+print(gs.best_params_)
+```
+➡︎
+{'max_depth': 39, 'min_impurity_decrease': 0.00034102546602601173, 'min_samples_leaf': 7, 'min_samples_split': 13}
+
+```python
+#최상의 교차 검증 점수 출력
+
+print(np.max(gs.cv_results_['mean_test_score']))
+```
+➡︎ 0.8695428296438884
+
+## <span style= 'background-color: #f1f8ff'>5-3: 트리의 앙상블
+**☆ 정형 데이터와 비정형 데이터: 어떤 구조로 이루어진 데이터를 정형 데이터라고 부르고 이와 반대되는 데이터를 비정형 데이터라고 부름. 정형 데이터는 데이터베이스나 엑셀로 표현하기 쉽지만 비정형 데이터는 아님.**
+
+⊕ 앙상블 학습: 정형 데이터를 다루는 데 가장 뛰어난 성과를 내는 알고리즘. 이 알고리즘은 대부분 결정 트리를 기반으로 만들어져 있음.
+
+⊕ 신경망 알고리즘: 비정형 데이터에 사용하는 알고리즘
+
+**☆ 랜덤 포레스트: 앙상블 학습의 대표 주자 중 하나로 안정적인 성능 덕분에 널리 사용됨. 결정 트리를 랜덤하게 만들어 결정 트리의 숲을 만들고 각 결정 트리의 예측을 사용해 최종 예측을 만듦. 기본적으로 100개의 결정 트리를 훈련함.**
+
+**☆ 랜덤 포레스트의 트리 훈련 방식**
+1. 입력한 훈련 데이터에서 랜덤하게 샘플을 추출하여 훈련 데이터를 만듦. 이때 한 샘플이 중복되어 추출될 수도 있음. 이렇게 만들어진 샘플을 **부트스트랩 샘플**이라고 부름.
+2. 각 노드를 분할할 때 전체 특성 중에서 일부 특성을 무작위로 고른 다음 이 중에서 최선의 분할을 찾음.
+
+**☆ 랜덤 포레스트의 최종 예측: 분류일 경우 각 트리의 클래스별 확률을 평균하여 가장 높은 확률을 가진 클래스를 예측으로 삼음. 회귀일 때는 단순히 각 트리의 예측을 평균함.**
+
+**☆ 랜덤 포레스트를 활용한 와인 분류 문제**
+
+```python
+#랜덤 포레스트를 활용한 와인 분류 문제
+
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+wine = pd.read_csv('https://bit.ly/wine-date')
+data = wine[['alcohol', 'sugar', 'pH']].to_numpy()
+target = wine['class'].to_numpy()
+train_input, test_input, train_target, test_target = train_test_split(data, target, test_size=0.2, random_state=42)
+
+from sklearn.model_selection import cross_validate
+from sklearn.ensemble import RandomForestClassifier
+rf = RandomForestClassifier(n_jobs=-1, random_state=42)
+scores = cross_validate(rf, train_input, train_target, return_train_score=True, n_jobs=-1) #return_train_score를 True로 지정하면 훈련 세트에 대한 점수도 같이 반환함
+print(np.mean(scores['train_score']), np.mean(scores['test_score']))
+```
+➡︎ 0.9973541965122431 0.8905151032797809 (과대적합)
+
+📌 랜덤 포레스트의 특징: DecisionTreeClassifier가 제공하는 중요한 매개변수를 모두 제공함. 또한 특성 중요도를 계산하는데, 랜덤 포레스트의 특성 중요도는 각 결정 트리의 특성 중요도를 취합한 것임.
+
+**☆ OOB 샘플을 이용한 랜덤 포레스트 평가: 부트스트랩 샘플에 포함되지 않고 남는 샘플을 OOB 샘플이라고 하는데 이 샘플을 이용하여 부트스트랩 샘플로 훈련한 결정 트리를 평가할 수 있음**
+
+```python
+#OOB 샘플을 이용한 랜덤 포레스트 평가
+
+rf = RandomForestClassifier(oob_score=True, n_jobs=-1, random_state=42)
+rf.fit(train_input, train_target)
+print(rf.oob_score_)
+```
+➡︎ 0.8934000384837406
+
+**☆ 엑스트라 트리: 랜덤 포레스트와 매우 비슷하게 동작하지만, 엑스트라 트리는 부트스트랩 샘플을 사용하지 않고, 노드를 분할할 때 가장 좋은 분할을 찾는 것이 아니라 무작위로 분할함.**
+
+```python
+#엑스트라 트리 실습
+
+from sklearn.ensemble import ExtranTreesClassifier
+et = ExtraTreesClassifier(n_jobs=-1, random_state=42)
+scores = cross_validate(et, train_input, train_target, return_train_score=True, n_jobs=-1)
+print(np.mean(scores['train_score']), np.mean(scores['test_score']))
+```
+➡︎ 0.9974503966084433 0.8887848893166506
+
+📌 엑스트라 트리의 특징: 무작위성이 랜덤 포레스트에 비해 좀 더 크기 때문에 더 많은 결정 트리를 훈련해야 함. 하지만 노드를 랜덤하게 분할하기 때문에 계산 속도가 빠름.
+
+**☆ 그레이디언트 부스팅: 깊이가 얕은 결정 트리를 사용하여 이전 트리의 오차를 보완하는 방식으로 앙상블 하는 방법. 경사 하강법을 사용하여 트리를 앙상블에 추가함.**
+
+```python
+#그레이디언트 부스팅 실습
+
+from sklearn.ensemble import GradientBoostingClassifier
+gb = GradientBoostingClassifier(random_state=42) #n_estimators 매개변수를 통해 결정 트리 개수 조절 가능
+scores = cross_validate(gb, train_input, train_target, return_train_score=True, n_jobs=-1)
+print(np.mean(scores['train_score']), np.mean(scores['test_score']))
+```
+➡︎ 0.8881086892152563 0.8720430147331015
+
+📌 그레이디언트 부스팅의 특징: 과대적합에 강하고 일반적으로 높은 일반화 성능을 기대할 수 있음. 하지만 트리를 순서대로 추가하기에 훈련 속도가 느림. 즉 n_jobs 매개변수가 없음.
+
+**☆ 히스토그램 기반 그레이디언트 부스팅: 입력 특성을 256개의 구간으로 나누고, 이 중 하나를 떼어 누락된 값을 위해 사용함.**
+
+```python
+#히스토그램 기반 그레이디언트 부스팅 실습
+
+from sklearn.experimental import enable_hist_gradient_boosting
+from sklearn.ensemble import HistGradientBoostionClassifier
+hgb = HistGradientBoostingClassfier(random_state=42)
+scores = cross_validate(hgb, train_input, train_target, return_train_score=True)
+print(np.mean(scores['train_score']), np.mean(scores['test_score']))
+```
+➡︎ 0.9321723946453317 0.8801241948619236
+
+⊕ 히스토그램 기반 그레이디언트 부스팅 알고리즘을 구현한 다른 라이브러리: XGBoost, LightGBM이 대표적.
+
+```python
+#XGBoost를 활용한 히스토그램 기반 그레이디언트 부스팅
+
+from xgboost import XGBClassifier
+xgb = XGBClassifier(tree_method='hist', random_state=42) #tree_method를 hist로 지정하면 히스토그램 기반 그레이디언트 부스팅을 사용 가능.
+scores = cross_validate(xgb, train_input, train_target, return_train_score=True)
+
+#LightGBM을 활용한 히스토그램 기반 그레이디언트 부스팅
+
+from lightgbm import LGBMClassifier
+lgb = LGBMClassifier(random_state=42)
+scores = cross_validate(lgb, train_input, train_target, return_train_score=True, n_jobs=-1)
+```
+
+### 출처 : 혼자 공부하는 머신러닝+딥러닝
