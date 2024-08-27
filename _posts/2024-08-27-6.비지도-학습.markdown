@@ -1,0 +1,240 @@
+---
+layout: post
+title: "혼자 공부하는 머신러닝+딥러닝 : 6. 비지도 학습"
+date: 2024-08-27 03:01:45 +0900
+categories: 혼자_공부하는_머신러닝+딥러닝
+---
+## <span style= 'background-color: #f1f8ff'>6-1: 군집 알고리즘
+**☆ 비지도 학습: 타깃이 없을 때 사용하는 머신러닝 알고리즘. 사람이 가르쳐 주지 않아도 데이터에 있는 무언가를 학습하는 알고리즘.**
+
+**☆ 군집 알고리즘: 비슷한 샘플끼리 그룹으로 모아 학습하는 알고리즘.**
+
+➀ 과일 사진 데이터 준비
+```python
+#과일 사진 데이터 준비 단계에서 사용되는 코드
+
+!wget https://bit.ly/fruits_300 -0 fruits_300.npy #npy 파일을 다운로드 하는 명령어
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+fruits = np.load('fruits_300.npy') #넘파이에서 npy 파일을 로드하는 명령어
+
+print(fuits.shape) #배열의 크기를 확인하는 명령어. 첫 번째 차원은 샘플의 개수, 두 번째 차원은 이미지 높이, 세 번째 차원은 이미지 너비를 나타냄
+
+print(fruits[0, 0, :]) #첫 번째 이미지의 첫 번째 행을 출력하는 명령어. 흑백 사진을 담고 있기에 0~255까지의 정숫값을 가짐
+
+plt.imshow(fruits[0], cmap='gray') #넘파이 배열로 저장된 이미지를 그리는 명령어. 흑백 이미지라 cmap을 gray로 지정
+plt.show()
+```
+📌 0~255까지의 정숫값의 의미: 0에 가까울수록 검게 나타나고, 높은 값은 밝게 나타남. 이때 픽셀값이 높으면 출력값도 커지기에 컴퓨터는 수가 커질수록 집중함. cmap을 gray_r로 지정하면 반대로 나타나는데, 이때는 밝은 부분이 0에 가까움.
+
+➁ 픽셀값 분석
+```python
+#픽셀값 분석에서 사용되는 코드
+
+apple = fruits[0:100].reshape(-1, 100*100) #처음 샘플부터 100번째 샘플까지 선택 후, 두 번째 차원과 세 번째 차원을 합치는 명령어
+pineapple = fruits[100:200].reshape(-1, 100*100)
+banana = fruits[200:300].reshape(-1, 100*100)
+
+print(apple.mean(axis=1)) #픽셀 평균값을 계산하는 명령어. axis=1로 지정하여 열 방향으로 계산하게끔 설정
+
+plt.hist(np.mean(apple, axis=1), alpha=0.8) #히스토그램을 그리는 명령어. alpha를 1보다 작게 설정하여 투명도를 설정함
+plt.hist(np.mean(pineapple, axis=1), alpha=0.8)
+plt.hist(np.mean(banana, axis=1), alpha=0.8)
+
+plt.legend(['apple', 'pineapple', 'banana']) #어떤 과일의 히스토그램인지 범례를 만드는 명령어
+plt.show()
+```
+➡︎
+![image](https://github.com/user-attachments/assets/b6113a3c-51b2-4fa4-8412-fd665a8662e4)
+
+```python
+#픽셀값 분석에서 샤용되는 코드
+
+fig, axs = plt.subplots(1, 3, figsize=(20,5)) #3개의 서브 그래프를 만드는 명령어
+axs[0].bar(range(10000), np.mean(apple, axis=0))
+axs[1].bar(range(10000), np.mean(pineapple, axis=0))
+axs[2].bar(range(10000), np.mean(banana, axis=0))
+plt.show()
+```
+➡︎
+![image](https://github.com/user-attachments/assets/7577a202-a53d-4b2b-a077-47a6deb77ea4)
+
+```python
+#픽셀값 분석에서 샤용되는 코드
+
+apple_mean = np.mean(apple, axis=0).reshape(100, 100)
+pineapple_mean = np.mean(pineapple, axis=0).reshape(100, 100)
+banana_mean = np.mean(banana, axis=0).reshape(100, 100)
+fig, axs = plt.subplots(1, 3, figsize=(20,5))
+axs[0].imshow(apple_mean, cmap='gray_r')
+axs[1].imshow(pinneapple_mean, cmap='gray_r')
+axs[2].imshow(banana_mean, cmap='gray_r')
+plt.show()
+```
+➡︎
+![image](https://github.com/user-attachments/assets/be6da55a-51df-4e69-8107-8f9919b6390b)
+
+➂ 평균값과 가까운 사진 고르기
+
+```python
+#평균값과 가까운 사진 고르기에서 사용되는 코드
+
+abs_diff = np.abs(fruits - apple_mean) #모든 샘플에서 apple_mean을 뺀 절댓값을 계산
+abs_mean = np.mean(abs_diff, axis=(1,2))
+print(abs_mean.shape)
+
+apple_index = np.argsort(abs_mean)[:100] #오차가 작은 샘플 100개를 고르는 명령어
+fig, axs = plt.subplots(10, 10, figsize=(10,10))
+for i in range(10):
+    for j in range(10):
+        axs[i, j].imshow(fruits[apple_index[i*10 + j]], cmap='gray_r')
+        axs[i, j].axis('off')
+plt.show()
+```
+➡︎
+![image](https://github.com/user-attachments/assets/0a86cc1e-e471-4509-b288-569114598edc)
+
+📌 클러스터: 군집 알고리즘에서 만든 그룹.
+
+## <span style= 'background-color: #f1f8ff'>6-2: k-평균
+**☆ k-평균 알고리즘: 준비된 샘플에 어떤 정보가 있는지 알지 못할 때 평균값을 구하는 군집 알고리즘.**
+
+**☆ k-평균 알고리즘의 작동 방식**
+1. 무작위로 k개의 클러스터 중심을 정한다.
+2. 각 샘플에서 가장 가까운 클러스터 중심을 찾아 해당 클러스터의 샘플로 지정한다.
+3. 클러스터에 속한 샘플의 평균값으로 클러스터 중심을 변경한다.
+4. 클러스터 중심에 변화가 없을 때까지 2번으로 돌아가 반복한다.
+
+![image](https://github.com/user-attachments/assets/d341e3fe-246a-4c99-9268-7382bbd3d0a0)
+
+⬆︎ k-평균 알고리즘의 작동 방식
+
+**☆ KMeans 클래스**
+```python
+#KMeans 클래스 실습
+
+!wget https://bit.ly/fruits_300 -0 fruits_300.npy
+
+import numpy as np
+fruits = np.load('fruits_300.npy')
+fruits_2d = fruits.reshpe(-1, 100*100) #3차원 배열을 2차원으로 변경
+
+from sklearn.cluster import KMeans
+km = KMeans(n_clusters=3, random_state=42) #n_clusters로 클러스터 개수 설정
+km.fit(fruits_2d) #비지도 학습이기에 타깃값을 제공하지 않음
+
+print(km.labels_) #각 샘플이 어떤 레이블에 해당하는지 출력하는 명령어
+```
+➡︎
+![image](https://github.com/user-attachments/assets/da723891-bad1-417a-aa03-958609c59bcf)
+
+```python
+#KMeans 클래스 실습
+
+print(np.unique(km.labels_, return_counts=True))
+```
+➡︎ (array([0, 1, 2], dtype=int32), array([91, 98, 111]))
+
+```python
+#KMeans 클래스 실습 (각 클러스터가 나타내는 이미지 그림으로 출력)
+
+import matplotlib.pyplot as plt
+def draw_fruits(arr, ratio=1):
+    n = len(arr)
+    rows = int(np.ceil(n/10)) #한 줄에 10개씩 이미지를 그림. 샘플 개수를 10으로 나누어 전체 행 개수를 계산
+    cols = n if rows < 2 else 10
+    fig, axs = plt.subplots(rows, cols, figsize=(cols*ratio, rows*ratio), squeeze=False)
+    for i in range(rows):
+        for j in range(cols):
+            if i*10 + j < n:
+                axs[i, j].imshow(arr[i*10 + j], cmap='gray_r')
+            axs[i, j].axis('off')
+    plt.show()
+```
+
+**☆ 클러스터 중심**
+```python
+#클러스터 중심과 관련한 명령어
+
+print(km.n_iter_) #알고리즘의 반복 횟수를 출력하는 명령어
+```
+
+**☆ 최적의 k 찾기 : 교재에서는 클러스터 중심과 샘플들 사이의 거리의 제곱 합인 이너셔를 이용하여 최적의 k를 찾는 엘보우 방식을 사용.**
+
+```python
+#최적의 k 찾기에서 사용되는 명령어
+
+inertia = []
+for k in range(2, 7):
+    km = KMeans(n_clusters=k, random_state=42)
+    km.fit(fruits_2d)
+    inertia.append(km.inertia_)
+plt.plot(range(2, 7), inertia)
+plt.show()
+```
+➡︎
+![image](https://github.com/user-attachments/assets/132beaff-2d9d-43d0-82f8-93ae13758f00)
+
+## <span style= 'background-color: #f1f8ff'>6-3: 주성분 분석
+**☆ 차원과 차원 축소: 머신러닝에서는 특성을 차원이라고도 부름. 이때 차원을 축소시키면 저장 공간을 크게 절약할 수 있는데, 데이터를 가장 잘 나타내는 일부 특성을 선택하여 데이터 크기를 줄이고 지도 학습 모델의 성능을 향상시키는 방법을 차원 축소라고 함.**
+
+**☆ 주성분 분석: 데이터에 있는 분산이 큰 벡터인 주성분 벡터를 찾는 것. 이때 주성분 벡터의 원소 개수는 원본 데이터셋에 있는 특성 개수와 같음.**
+
+📌 주성분의 개수: 일반적으로 주성분은 원본 특성의 개수만큼 찾을 수 있음.
+
+![image](https://github.com/user-attachments/assets/77490050-9fe1-4599-9495-624f39873252)
+
+⬆︎ 주성분 분석의 원리. 주성분으로 바꾼 데이터는 차원이 줄어듦.
+
+**☆ PCA 클래스**
+```python
+#PCA 클래스 실습
+
+!wget https://bit.ly/fruits_300 -0 fruits_300.npy
+import numpy as np
+fruits = np.load('fruits_300.npy')
+fruits_2d = fruits.reshape(-1, 100*100)
+
+from sklearn.decomposition import PCA
+pca = PCA(n_components=50) #주성분의 개수 지정
+pca.fit(fruits_2d)
+
+draw_fruits(pca.components_.reshape(-1, 100, 100))
+```
+➡︎
+![image](https://github.com/user-attachments/assets/fa02ddec-6798-421e-a9bd-b3cb00fcbf23)
+
+```python
+#PCA 클래스 실습
+
+fruits_pca = pca.transform(fruits_2d) #차원 축소
+print(fruits_pca.shape)
+```
+➡︎ (300,50)
+
+**☆ 원본 데이터 재구성**
+```python
+#원본 데이터 재구성에서 사용되는 코드
+
+fruits_invers = pca.invers_transform(fruits_pca)
+print(fruits_inverse.shape)
+```
+➡︎ (300, 10000)
+
+**☆ 설명된 분산: 주성분이 원본 데이터의 분산을 얼마나 잘 나타내는지 기록한 값.**
+
+```python
+print(np.sum(pca.explained_variance_ratio_)) #50개의 주성분으로 표현하고 있는 총 분산 비율을 출력
+```
+➡︎ 0.9215190262621741
+
+```python
+plt.plot(pca.explained_variance_ratio_) #설명된 분산을 그래프로 출력
+```
+➡︎
+![image](https://github.com/user-attachments/assets/bc6b32bd-d65d-4230-ac5f-ef582872398d)
+
+
+### 출처 : 혼자 공부하는 머신러닝+딥러닝
