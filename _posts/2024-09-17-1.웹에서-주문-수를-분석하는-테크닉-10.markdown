@@ -1,0 +1,184 @@
+---
+layout: post
+title: "파이썬 데이터분석 실무 테크닉 100 : 1. 웹에서 주문 수를 분석하는 테크닉 10"
+date: 2024-09-17 03:01:45 +0900
+categories: 파이썬_데이터분석_실무_테크닉_100
+---
+## <span style= 'background-color: #f1f8ff'>1-1: 데이터를 읽어 들이자
+🗃️ 데이터 리딩
+```python
+import pandas as pd
+customer_master = pd.read_csv('customer_master.csv')
+customer_master.head() #처음 5행 표시
+```
+🔎 실제 현장에서는 먼저 데이터를 수집한 후 데이터의 개요를 파악하고 나서 분석에 적절한 형태로 가공하는 경우가 많음. 따라서 여러 개의 파일에 데이터가 흩어져 있는 경우를 다루는 것에 익숙해져야 함!
+
+🔎 추상적 목적이든 구체적 목적이든 먼저 데이터 전체를 파악하는 것이 중요 => 상세한 데이터를 기준으로 데이터를 가공하는 것이 중요
+
+## <span style= 'background-color: #f1f8ff'>1-2: 데이터를 결합(유니언)해 보자
+🗃️ 데이터 유니언
+```python
+#필요한 csv 파일은 이미 읽어왔다 가정
+transaction = pd.concat([transaction_1, transaction_2], ignore_index=True) #데이터를 행 방향으로 결합(유니언)
+```
+
+🗃️ 유니언 결과 확인
+```python
+print(len(transaction_1))
+print(len(transaction_2))
+print(len(transaction))
+```
+➡︎
+5000, 1786, 6786
+
+🔎 행 방향으로 결합(유니언)했기에 처음 5행 표시로는 결합이 제대로 됐는지 확인할 수 없음. 따라서 len 명령어로 각 파일들의 세로 길이를 파악하여 결합이 제대로 됐는지 확인함.
+
+## <span style= 'background-color: #f1f8ff'>1-3: 매출 데이터끼리 결합(조인)해 보자
+🔎 데이터를 조인할 때 ➀부족한 데이터 칼럼이 무엇인가와 ➁공통되는 데이터 칼럼은 무엇인가 생각해야함. 
+
+🗃️ 데이터 조인
+```python
+join_data = pd.merge(transaction_detail, transaction[["transaction_id", "payment_date", "customer_id"]], on="transaction_id", how="left")
+#transaction_detail과 transaction을 조인. transaction의 세 컬럼을 조인시킴.
+#on을 지정하여 공통 컬럼인 transaction_id를 기준으로 조인함.
+#how를 지정하여 레프트 조인으로 설정. 왼쪽 데이터를 중심으로 오른쪽 데이터가 결합됨.
+join_data.head()
+```
+
+🗃️ 조인 결과 확인
+```python
+print(len(transaction_detail))
+print(len(transaction))
+print(len(join_data))
+```
+➡︎
+7144, 6786, 7144
+
+🔎 즉, transaction_detail과 join_data의 세로 길이가 같은 것으로 보아 가로로 데이터가 늘어나서 조인된 것을 확인할 수 있음.
+
+## <span style= 'background-color: #f1f8ff'>1-4: 마스터데이터를 결합(조인)해 보자
+🗃️ 마스터데이터 조인
+```python
+join_data = pd.merge(join_data, customer_master, on="customer_id", how="left")
+join_data = pd.merge(join_data, item_master, on="item_id", how="left")
+join_data.head()
+```
+
+## <span style= 'background-color: #f1f8ff'>1-5: 필요한 데이터 칼럼을 만들자
+🗃️ 데이터 칼럼 생성
+```python
+join_data["price"] = join_data["quantity"] * join_data["item_price"]
+join_data[["quantity", "item_price", "price"]].head()
+```
+
+🔎 데이터프레임형 곱셈은 행마다 계산이 실행됨.
+
+🔎 잘못된 데이터 제공은 회사의 경영에 막대한 영향을 미치며 최악의 경우 회사를 망하게 할 수도 있음. 또한 고객의 신뢰를 잃기 쉬움. 따라서 데이터를 결합할 때는 신중히 개수를 확인해야하며 검산이 가능한 데이터 칼럼을 찾고 계산해야함.
+
+## <span style= 'background-color: #f1f8ff'>1-6: 데이터를 검산하자
+🗃️ 데이터 검산
+```python
+#방법 1
+print(join_data["price"].sum())
+print(transaction["price"].sum())
+
+#방법 2
+join_data["price"].sum() == transaction["price"].sum()
+```
+➡︎
+971135000, 971135000, True
+
+## <span style= 'background-color: #f1f8ff'>1-7: 각종 통계량을 파악하자
+🔎 데이터 분석을 진행할 때는 ➀결손치의 개수, ➁전체를 파악할 수 있는 숫자감을 파악해야함.
+
+🗃️ 결손치 파악
+```python
+join_data.isnull().sum()
+#isnull은 결손치가 True/False로 반환함.
+#sum으로 True의 개수를 컬럼마다 계산하여 결손치의 개수를 파악함.
+```
+➡︎
+![image](https://github.com/user-attachments/assets/36c5d108-3e4e-4b4c-8813-e1b306673136)
+
+🗃️ 전체 숫자감 파악
+```python
+join_data.describe()
+#describe는 데이터 개수, 평균값, 표준편차, 최솟값, 사분위수, 중앙값, 최댓값 출력
+```
+➡︎
+![image](https://github.com/user-attachments/assets/5439c568-b23d-4b90-92a8-04b297d5ecff)
+
+🗃️ 데이터 기간 파악
+```python
+print(join_data["payment_date"].min())
+print(join_data["payment_date"].max())
+```
+➡︎
+2019.02.01, 2019.07.31
+
+## <span style= 'background-color: #f1f8ff'>1-8: 월별로 데이터를 집계해 보자
+🔎 데이터의 기간이 길어지면 여러가지 비즈니스 모델이 포함되어 있을 수 있기에 전체 데이터를 한 번에 분석할 경우 데이터의 시계열 변화를 잘못 파악하는 경우가 있음. => 데이터 범위를 좁혀서 분석!
+
+🗃️ 데이터형 확인
+```python
+join_data.dtypes
+```
+➡︎
+![image](https://github.com/user-attachments/assets/fa3ccf8e-ffbe-49c3-8b82-bbe8054cd0d7)
+
+🗃️ 데이터형 변환
+```python
+join_data["payment_date"] = pd.to_datetime(join_data["payment_date"])
+join_data["payment_month"] = join_data["payment_date"].dt.strftime("%Y%m") #년, 월 추출
+join_data[["payment_date", "payment_month"]].head()
+```
+➡︎
+![image](https://github.com/user-attachments/assets/ca24a901-7b4f-4da9-820f-a2071fd444bc)
+
+🗃️ 월별 데이터 집계
+```python
+join_data.groupby("payment_month").sum()["price"]
+```
+➡︎
+![image](https://github.com/user-attachments/assets/8e3118ed-53a8-425a-97e0-95e2a2f4def8)
+
+## <span style= 'background-color: #f1f8ff'>1-9: 월별, 상품별로 데이터를 집계해 보자
+🗃️ 월별, 상품별 데이터 집계 1
+```python
+join_data.groupby(["payment_month","item_name"]).sum()[["price", "quantity"]]
+```
+➡︎
+![image](https://github.com/user-attachments/assets/4555f877-99da-4162-9342-12245ec9e04f)
+
+🗃️ 월별, 상품별 데이터 집계 2
+```python
+pd.pivot_table(join_data, index='item_name', columns='payment_month', values=['price', 'quantity'], aggfunc='sum')
+#index를 item_name, columns를 payment_month로 지정하여 행과 칼럼을 지정.
+#values를 지정하여 집계하고 싶은 칼럼을 설정.
+#aggfunc로 집계 방법을 설정.
+```
+➡︎
+![image](https://github.com/user-attachments/assets/ef67b432-a194-41e6-b911-6b84b5b8fc4f)
+
+## <span style= 'background-color: #f1f8ff'>1-10: 상품별 매출 추이를 가시화해 보자
+🗃️ 데이터 집계
+```python
+graph_data = pd.pivot_table(join_data, index='payment_month', columns='item_name', values='price', aggfunc='sum')
+```
+
+🗃️ 그래프 작성
+```python
+import matplotlib.pyplot as plt
+&matplotlib inline #주피터 노트북에 표시하기 위한 코드.
+plt.plot(list(graph_data.index), graph_data["PC-A"], label='PC-A')
+plt.plot(list(graph_data.index), graph_data["PC-B"], label='PC-B')
+plt.plot(list(graph_data.index), graph_data["PC-C"], label='PC-C')
+plt.plot(list(graph_data.index), graph_data["PC-D"], label='PC-D')
+plt.plot(list(graph_data.index), graph_data["PC-E"], label='PC-E')
+plt.legend() #범례 표시
+```
+➡︎
+![image](https://github.com/user-attachments/assets/50efcf0b-23e7-4034-9ec9-d7af4daa07c8)
+
+
+### 출처 : 파이썬 데이터분석 실무 테크닉 100

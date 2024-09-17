@@ -1,0 +1,203 @@
+---
+layout: post
+title: "파이썬 데이터분석 실무 테크닉 100 : 2. 대리점 데이터를 가공하는 테크닉 10"
+date: 2024-09-17 03:01:45 +0900
+categories: 파이썬_데이터분석_실무_테크닉_100
+---
+## <span style= 'background-color: #f1f8ff'>2-0: 전제조건
+💡 이 대리점에서는 상품A~Z까지 26개의 상품을 취급하며, 매출 이력과 고객정보 데이터는 담당사원이 시스템에 직접 입력합니다. 집계 기간에 상품 단가의 변동은 없었고 매출 이력은 시스템에서 CSV 파일로 출력했습니다. 고객 정보는 대리점 관리자가 주별로 집계해서 엑셀로
+관리합니다.
+
+## <span style= 'background-color: #f1f8ff'>2-1: 데이터를 읽어 들이자
+🗃️ 데이터 리딩
+```python
+import pandas as pd
+uriage_data = pd.read_csv("uriage.csv")
+uriage_data.head()
+```
+➡︎
+![image](https://github.com/user-attachments/assets/19b2c6c5-2cb6-4f0e-8838-8cb67f391e41)
+
+```python
+kokyaku_data = pd.read_excel("kokyaku_daicho.xlsx")
+kokyaku_data.head()
+```
+➡︎
+![image](https://github.com/user-attachments/assets/af71308b-618c-4591-add0-7ca66829964a)
+
+🔎 item_name이나 item_price에 결측치나 오류가 보이는 것을 확인할 수 있음. => "데이터의 정합성에 문제가 있다."
+
+⊕ 데이터 오류의 예시
+![image](https://github.com/user-attachments/assets/89789e9b-daaf-4421-ba7e-ec84f2b990e9)
+
+## <span style= 'background-color: #f1f8ff'>2-2: 데이터의 오류를 살펴보자
+🗃️ 데이터 오류 확인
+```python
+uriage_data["item_name"].head()
+```
+➡︎
+![image](https://github.com/user-attachments/assets/42c07900-ffcd-4454-b333-49ad274f65e6)
+
+## <span style= 'background-color: #f1f8ff'>2-3: 데이터에 오류가 있는 상태로 집계해 보자
+🗃️ 오류가 있는 상태의 데이터 집계
+```python
+uriage_data["purchase_date"] = pd.to_datetime(uriage_data["purchase_date"])
+uriage_date["purchase_month"] = uriage_data["purchase_date"].dt.strftime("%Y%m")
+res = uriage_data.pivot_table(index="purchase_month", columns="item_name", aggfunc="size", fill_value=0)
+res
+```
+➡︎
+![image](https://github.com/user-attachments/assets/859f9c1a-4d2e-43c1-9cd4-41d9d1f2a63e)
+
+🔎 '상품S', '상품s'와 같이 원래 동일한 상품이 다른 상품으로 집계되는 등 오류 발생. 이런 오류로 인해 원래 26개의 상품이 99개의 상품으로 늘어남.
+
+## <span style= 'background-color: #f1f8ff'>2-4: 상품명 오류를 수정하자
+🗃️ 데이터 현황 파악
+```python
+print(len(pd.unique(uriage_data.item_name)))
+```
+➡︎
+99
+
+🗃️ 데이터 오류 수정
+```python
+uriage_data["item_name"] = uriage_data["item_name"].str.upper() #소문자를 대문자로 변환
+uriage_data["item_name"] = uriage_data["item_name"].str.replace("  ", "") #공백 제거 1
+uriage_data["item_name"] = uriage_data["item_name"].str.replace(" ", "") #공백 제거 2
+uriage_data.sort_values(by=["item_name"], ascending=True)
+```
+➡︎
+![image](https://github.com/user-attachments/assets/21bb10e6-dce8-4d97-94bd-4e21a70994cf)
+
+🗃️ 결과 검증
+```python
+print(len(pd.unique(uriage_data["item_name"])))
+print(pd.unique(uriage_data["item_name"]))
+```
+➡︎
+26
+['상품A', '상품S', ~~~~~~~~~~~~~, '상품J']
+
+## <span style= 'background-color: #f1f8ff'>2-5: 금액의 결측치를 수정하자
+🗃️ 결측치 유무 확인
+```python
+uriage_data.isnull().any(axis=0)
+#True 값이 나오면 결측치가 있음을 의미.
+```
+➡︎
+![image](https://github.com/user-attachments/assets/a6f2665e-fcac-475b-9c5d-7f2f4c197080)
+
+🗃️ 결측치 수정
+```python
+flg_is_null = uriage_data["item_price"].isnull()
+for trg in list(uriage_data.loc[flg_is_null, "item_name"].unique()):
+#list를 이용하여 변수의 값을 리스트 형식으로 변환.
+#loc을 이용하여 조건을 지정하고 조건에 일치하는 데이터 중에서 어떤 컬럼을 가져올지 지정.
+#unique를 이용해 중복 제거.
+    price = uriage_data.loc[(~flg_is_null) & (uriage_data["item_name"]==trg), "item_price"].max()
+    #loc을 이용하여 조건을 지정하고 조건에 일치하는 데이터 중에서 어떤 컬럼을 가져올지 지정.
+    #부정 연산자 ~을 활용.
+    uriage_data["item_price"].loc[(flg_is_null) & (uriage_data["item_name"]==trg)] = price
+    #가져온 금액으로 데이터를 수정
+uriage_data.head()
+```
+➡︎
+![image](https://github.com/user-attachments/assets/7bf0f228-38b9-435d-b26d-882fc02d1df7)
+
+🗃️ 결과 검증
+```python
+uriage_data.isnull().any(axis=0)
+```
+➡︎
+![image](https://github.com/user-attachments/assets/6463de75-d8e6-41d5-a1ee-73208d77d1a6)
+
+## <span style= 'background-color: #f1f8ff'>2-6: 고객 이름의 오류를 수정하자
+🗃️ 고객 이름 오류 수정
+```python
+kokyaku_data["고객이름"] = kokyaku_data["고객이름"].str.replace("  ", "")
+kokyaku_data["고객이름"] = kokyaku_data["고객이름"].str.replace(" ", "")
+kokyaku_data["고객이름"].head()
+```
+➡︎
+![image](https://github.com/user-attachments/assets/6aac28cc-c0b8-4bda-8ef2-82608495a68e)
+
+🔎 이름 입력 오류는 더 복잡한 경우가 있을 수 있음. 이런 때에는 담당자에게 물어서 작업해야 하는 경우도 있음. 또, 같은 이름의 데이터가 존재하는 경우에는 등록일, 생년월일 등 다른 정보를 이용해서 구분해야 함.
+
+## <span style= 'background-color: #f1f8ff'>2-7: 날짜 오류를 수정하자
+🔎 엑셀 데이터를 취급할 때 주의해야 할 점: 서식이 다른 데이터가 섞여 있을 수 있음.
+
+🗃️ 오류 데이터 확인
+```python
+flg_is_serial = kokyaku_data["등록일"].astype("str").str.isdigit()
+flg_is_serial.sum()
+```
+➡︎
+22
+
+🗃️ 날짜 오류 수정
+```python
+fromSerial = pd.to_timedelta(kokyaku_data.loc[flg_is_serial, "등록일"].astype("float"), unit="D") + pd.to_datetime("1900/01/01")
+fromSerial
+```
+➡︎
+![image](https://github.com/user-attachments/assets/f3582555-2821-45ad-9586-ec7ada6dd038)
+
+🗃️ 서식 통일
+```python
+fromString = pd.to_datetime(kokyaku_data.loc[~flg_is_serial, "등록일"])
+fromString
+```
+➡︎
+![image](https://github.com/user-attachments/assets/3e65f324-2dea-44dc-8ec4-6c472cfa7b7c)
+
+🗃️ 날짜 데이터 갱신
+```python
+kokyaku_data["등록일"] = pd.concat([fromSerial, fromString])
+```
+
+🗃️ 결과 검증
+```python
+flg_is_serial = kokyaku_data["등록일"].astype("str").str.isdigit()
+flg_is_serial.sum()
+```
+➡︎
+0
+
+## <span style= 'background-color: #f1f8ff'>2-8: 고객 이름을 키로 두 개의 데이터를 결합(조인)하자
+🔎 정합성이 없는 데이터는 두 개의 데이터의 서로 다른 열을 지정해서 결합해야 함.
+
+🗃️ 데이터 결합(조인)
+```python
+join_data = pd.merge(uriage_data, kokyaku_data, left_on="customer_name", right_on="고객이름", how="left")
+join_data = join_data.drop("customer_name", axis=1)
+join_data
+```
+➡︎
+![image](https://github.com/user-attachments/assets/41df7927-efb6-4600-a56e-16e31af1c0d3)
+
+## <span style= 'background-color: #f1f8ff'>2-9: 정제한 데이터를 덤프하자
+🗃️ 칼럼 배치 수정
+```python
+dump_data = join_data[["purchase_date", "purchase_month", "item_name", "item_price", "고객이름", "지역", "등록일"]]
+dump_data
+```
+➡︎
+![image](https://github.com/user-attachments/assets/27236050-4736-4e96-b8f6-18640536b083)
+
+🗃️ 데이터 덤프
+```python
+dump_data.to_csv("dump_data.csv", index=False)
+```
+
+## <span style= 'background-color: #f1f8ff'>2-10: 데이터를 집계하자
+🗃️ 데이터 집계 예시
+```python
+import_data = pd.read_csv("dump_data.csv")
+
+byItem = import_data.pivot_table(index="purchase_month", columns="item_name", aggfunc="size", fill_value=0)
+byItem
+```
+![image](https://github.com/user-attachments/assets/ead3e585-668d-41d3-97ea-773640db2b0e)
+
+
+### 출처 : 파이썬 데이터분석 실무 테크닉 100
