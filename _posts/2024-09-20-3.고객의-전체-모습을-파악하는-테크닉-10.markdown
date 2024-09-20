@@ -1,0 +1,199 @@
+---
+layout: post
+title: "파이썬 데이터분석 실무 테크닉 100 : 3. 고객의 전체 모습을 파악하는 테크닉 10"
+date: 2024-09-17 03:01:45 +0900
+categories: 파이썬_데이터분석_실무_테크닉_100
+---
+## <span style= 'background-color: #f1f8ff'>3-0: 전제조건
+💡 지금부터는 30개의 테크닉을 이용해서 스포츠 센터의 데이터를 다룹니다.\
+스포츠 센터에는 센터를 언제든 사용할 수 있는 종일 회원, 낮에만 사용할 수 있는 주간회원, 밤에만 사용할 수 있는 야간회원으로 3종류의 회원 구분이 있습니다. 또, 일반적으로 입회비가 들지만, 비정기적으로 입회비 반액 할인이나 입회비 무료 행사를 해서 신규회원을 늘리고 있습니다. 탈퇴하려면 월말까지 신청하면 그 다음 달 말에 탈퇴가 됩니다.\
+취급할 데이터는 4종류이며 표로 나타냈습니다.\
+use_log.csv는 센터 이용 이력으로, 회원이 센터를 이용하면 이용일이 시스템에 자동 입력됩니다. 2018년 4월부터 2019년 3월까지 1년분의 데이터입니다. customer_master.csv는 2019년 3월 말 시점의 회원 데이터이며, 이전에 탈퇴한 회원도 포함되어 있습니다. class_master.csv와 campaign_master.csv는 각각 회원 구분, 가입 시 행사 종류 데이터입니다.
+![image](https://github.com/user-attachments/assets/2481a437-8a50-42af-9e28-969e3c35c747)
+
+## <span style= 'background-color: #f1f8ff'>3-1: 데이터를 읽어 들이고 확인하자
+🗃️ 데이터 리딩: pandas의 read_csv()를 통한 데이터 리딩 및 len()을 통한 데이터 개수 확인 과정. 앞에서 여러 번 다룬 내용이기에 생략.
+
+🔎 본격적인 분석 전, head()를 이용하여 각 데이터 파일의 처음 몇 행을 표시하여 어떤 데이터열이 존재하는지와 각 데이터 사이의 관계성 등을 파악하는 것이 중요.
+
+## <span style= 'background-color: #f1f8ff'>3-2: 고객 데이터를 가공하자
+🗃️ 데이터 조인: customer를 중심으로 class_master와 campaign_master를 결합. 공통되는 열을 찾아 레프트 조인.
+```python
+customer_join = pd.merge(customer, class_master, on="class", how="left")
+customer_join = pd.merge(customer_join, campaign_master, on="campaign_id", how="left")
+
+print(len(customer))
+print(len(customer_join))
+```
+4192\
+4192
+
+🗃️ 결측치 확인: 조인할 때 키가 없거나 조인이 잘못되면 자동으로 결측치가 들어감. 따라서 조인 후에는 결측치를 확인해야 함.
+```python
+customer_join.isnull().sum()
+```
+![image](https://github.com/user-attachments/assets/95c671ba-6714-41ca-bc69-13c6f49493b7)
+
+🔎 end_date에 결측이 있는 이유에 대한 추측: 탈퇴하지 않은 회원의 탈퇴일이 공백이기 때문.
+
+## <span style= 'background-color: #f1f8ff'>3-3: 고객 데이터를 집계하자
+🗃️ 고객 데이터 집계: 데이터 집계를 통해 전반적인 특성 파악.
+```python
+customer_join.groupby("class_name").count()["customer_id"]
+```
+![image](https://github.com/user-attachments/assets/6b5a6975-843a-46f2-9c03-974db62164a9)
+
+```python
+customer_join.groupby("campaign_name").count()["customer_id"]
+```
+![image](https://github.com/user-attachments/assets/8b8f16a4-6d8c-449e-b32d-da413807c6b5)
+
+```python
+customer_join.groupby("gender").count()["customer_id"]
+```
+![image](https://github.com/user-attachments/assets/099d80d2-c914-4022-a7f5-fe06d983ecc6)
+
+```python
+customer_join.groupby("is_deleted").count()["customer_id"]
+```
+![image](https://github.com/user-attachments/assets/d309713f-431d-4745-aa09-fff38fabd27c)
+
+## <span style= 'background-color: #f1f8ff'>3-4: 최신 고객 데이터를 집계하자
+🗃️ 최신 고객 데이터 집계
+```python
+customer_join["end_date"] = pd.to_datetime(customer_join["end_date"])
+customer_newer = customer_join.loc[(customer_join["end_date"] >= pd.to_datetime("20190331")) | (customer_join["end_date"].isna())]
+print(len(customer_newer))
+customer_newer["end_date"].unique()
+```
+
+⊕ loc(): 특정 행과 열 선택.
+
+🗃️ 전체 데이터감 파악
+```python
+customer_newer.groupby("class_name").count()["customer_id"]
+```
+![image](https://github.com/user-attachments/assets/67234ccc-c7a6-4cfa-be52-b3b10e9953d2)
+
+```python
+customer_newer.groupby("campaign_name").count()["customer_id"]
+```
+![image](https://github.com/user-attachments/assets/4c662b34-aaba-4aff-bba5-a7942cf2acf2)
+
+```python
+customer_newer.groupby("gender").count()["customer_id"]
+```
+![image](https://github.com/user-attachments/assets/7ada50d8-8a00-4fa0-9d39-2664d537042a)
+
+🔎 회원 구분 및 성별을 전체를 집계했을 때와 비율이 크게 다르지 않으나, **캠페인 구분은 약간 차이가 있어 입회 캠페인은 회원 비율 변화에 영향을 미친다고 추측할 수 있음.**
+
+## <span style= 'background-color: #f1f8ff'>3-5: 이용 이력 데이터를 집계하자
+🗃️ 이용 이력 데이터 집계
+```python
+uselog["usedate"] = pd.to_datetime(uselog["usedate"])
+uselog["연월"] = uselog["usedate"].dt.strftime("%Y%m")
+uselog_months = uselog.groupby(["연월","customer_id"],as_index=False).count()
+uselog_months.rename(columns={"log_id":"count"}, inplace=True)
+del uselog_months["usedate"]
+uselog_months.head()
+```
+![image](https://github.com/user-attachments/assets/018633b5-b11a-45b3-9aae-bcdc2f52feba)
+
+⊕ as_index=False: 인덱스를 기본 인덱스로 유지.
+
+
+🗃️ 고객별 평균값, 중앙값, 최댓값, 최솟값 집계
+```python
+uselog_customer = uselog_months.groupby("customer_id").agg(["mean", "median", "max", "min"])["count"]
+uselog_customer = uselog_customer.reset_index(drop=False)
+uselog_customer.head()
+```
+![image](https://github.com/user-attachments/assets/6d4c424c-dc35-462f-abed-ccaa02a67f48)
+
+⊕ drop=False: 인덱스를 열로 생성.
+
+## <span style= 'background-color: #f1f8ff'>3-6: 이용 이력 데이터로부터 정기 이용 플래그를 작성하자
+🗃️ 정기 이용 회원의 플래그 작성: 매주 같은 요일에 왔는지 아닌지로 판단. 고객마다 월/요일별로 집계하고, 최댓값이 4 이상인 요일이 하나라도 있는 회원은 플래그를 1로 처리.
+```python
+uselog["weekday"] = uselog["usedate"].dt.weekday
+uselog_weekday = uselog.groupby(["customer_id", "연월", "weekday"], as_index = False).count()[["customer_id", "연월", "weekday", "log_id"]]
+uselog_weekday.rename(columns=["log_id":"count"], inplace=True)
+uselog_weekday.head()
+```
+![image](https://github.com/user-attachments/assets/63ffdcd8-2c75-4fbe-a0f8-fc1b5056c861)
+
+```python
+uselog_weekday = uselog_weekday.groupby("customer_id", as_index=False).max()[["customer_id", "count"]]
+uselog_weekday["routine_flg"] = 0
+uselog_weekday["routine_flg"] = uselog_weekday["routine_flg"].where(uselog_weekday["count"]<4, 1)
+uselog_weekday.head()
+```
+![image](https://github.com/user-attachments/assets/ccc80b98-8d6d-4d8d-a8db-314a38cb7bfc)
+
+## <span style= 'background-color: #f1f8ff'>3-7: 고객 데이터와 이용 이력 데이터를 결합하자
+🗃️ 고객 데이터와 이용 이력 데이터 결합
+```python
+customer_join = pd.merge(customer_join, uselog_customer, on="customer_id", how="left")
+customer_join = pd.merge(customer_join, uselog_weekday[["customer_id", "routine_flg"]], on="customer_id", how="left")
+customer_join.head()
+```
+![image](https://github.com/user-attachments/assets/fcb4aa9f-dd79-4e14-b2c3-06a298328143)
+
+🗃️ 결측치 확인: isnull().sum() 활용. 데이터 결합시 결측치 확인하는 것을 습관 들일 것.
+
+## <span style= 'background-color: #f1f8ff'>3-8: 회원 기간을 계산하자
+🗃️ 회원 기간 계산: 2019년 3월까지 탈퇴하지 않은 회원은 end_date를 2019년 4월 30일로 채워서 회원 기간 계산.
+```python
+from dateutil.relativedelta import relativedelta
+customer_join["calc_date"] = customer_join["end_date"]
+customer_join["calc_date"] = customer_join["calc_date"].fillna(pd.to_datetime("20190430"))
+customer_join["membership_period"] = 0
+for i in range(len(customer_join)):
+    delta = relativedelta(customer_join["calc_date"].iloc[i], customer_join["start_date"].iloc[i])
+    customer_join["membership_period"].iloc[i] = delta.years*12 + delta.months
+customer_join.head()
+```
+![image](https://github.com/user-attachments/assets/1e147aa5-5125-4cce-a090-c6ffe81815db)
+
+⊕ relativedelta: 날짜 비교 함수.\
+⊕ iloc[]: 행과 열을 위치 기반으로 선택하는 데 사용되는 인덱싱 방법.
+
+## <span style= 'background-color: #f1f8ff'>3-9: 고객 행동의 각종 통계량을 파악하자
+🗃️ 각종 통계량 파악
+```python
+customer_join[["mean", "median", "max", "min"]].describe()
+```
+![image](https://github.com/user-attachments/assets/1bce3783-538e-46c0-a1a5-e86bc457cb39)
+
+```python
+import matplotlib.pyplot as plt
+%matplotlib inline #주피터 노트북에서 그래프를 인라인으로 표시하기 위한 커맨드
+plt.hist(customer_join["membership_period"])
+```
+![image](https://github.com/user-attachments/assets/dfe642fd-6b12-4d4b-9971-cdd09a857ea6)
+
+🔎 통계량 파악을 통해 고객 특성 파악. 예를 들어 회원 기간이 10개월 이내인 고객이 많고, 10개월 이상의 고객 수는 거의 일정.
+
+## <span style= 'background-color: #f1f8ff'>3-10: 탈퇴 회원과 지속 회원의 차이를 파악하자
+🗃️ 탈퇴 회원과 지속 회원 비교
+```python
+customer_end = customer_join.loc[customer_join["is_deleted"]==1]
+customer_end.describe()
+```
+![image](https://github.com/user-attachments/assets/4d96997d-5ff1-485f-bf18-e849726a0886)
+
+```python
+customer_stay = customer_join.loc[customer_join["is_deleted"]==0]
+customer_stay.describe()
+```
+![image](https://github.com/user-attachments/assets/93356b72-85a9-4384-b10c-46fadef50536)
+
+🔎 탈퇴 회원의 매월 이용 횟수의 평균값, 중앙값, 최댓값, 최솟값은 모두 지속 회원보다 작음. routine_flg의 평균값은 특히 차이가 크게 나서 지속 회원은 0.98로 많은 회원이 정기적으로 이용하고 있다는 것을 알 수 있지만, 탈퇴 회원은 0.45로 거의 절반은 랜덤하게 이용하고 있음을 알 수 있음.
+
+🗃️ csv 파일로 변환
+```python
+customer_join.to_csv("customer_join.csv", index=False)
+```
+
+
+### 출처 : 파이썬 데이터분석 실무 테크닉 100
