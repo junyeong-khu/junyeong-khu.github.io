@@ -1,0 +1,209 @@
+---
+layout: post
+title: "파이썬 데이터분석 실무 테크닉 100 : 4. 고객의 행동을 예측하는 테크닉 10"
+date: 2024-09-24 03:01:45 +0900
+categories: 파이썬_데이터분석_실무_테크닉_100
+---
+## <span style= 'background-color: #f1f8ff'>4-0: 전제조건
+💡 계속해서 스포츠 센터의 데이터를 다룹니다.\
+3장에서 이용 이력을 집계한 결과에 고객 데이터를 결합한 customer_join.csv가 추가됐습니다. 여기서는 5개의 데이터 중에서 use_log.csv와 customer_join.csv만 사용합니다.
+![image](https://github.com/user-attachments/assets/09c19024-cebb-44a3-a591-f0109e9088a4)
+
+## <span style= 'background-color: #f1f8ff'>4-1: 데이터를 읽어 들이고 확인하자
+🗃️ 데이터 리딩: pandas의 read_csv()를 통한 데이터 리딩 및 isnull().sum()을 통한 결측치 파악. 앞에서 여러 번 다룬 내용이기에 생략. 3장에서와 마찬가지로 end_date 이외에는 결측치가 0.
+
+🔎 비지도학습: 정답 데이터를 학습시키지 않고 주어진 데이터로부터 규칙성과 같은 의미 있는 정보를 발견하는 방법.
+
+🔎 클러스터링: 데이터 포인트의 그룹화와 관련된 머신러닝 기술.
+
+## <span style= 'background-color: #f1f8ff'>4-2: 클러스터링으로 회원을 그룹화하자
+🗃️ 클러스터링: 고객의 한 달 이용 이력 데이터인 mean, median, max, min, membership_period를 이용. 변수 간의 거리를 기반으로 그룹화를 진행하는 K-means를 이용하여 클러스터링.
+```python
+customer_clustering = customer[["mean", "median", "max", "min", "membership_period"]] #필요한 변수 추출.
+
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+sc = StandardScaler()
+customer_clustering_sc = sc.fit_transform(customer_clustering) #표준화
+
+kmeans = KMeans(n_clusters=4, random_state=0)
+clusters = kmeans.fit(customer_clustering_sc)
+customer_clustering["cluster"] = clusters.labels_ #각 데이터 포인트의 클러스터 라벨을 데이터 프레임에 추가.
+print(customer_clustering["cluster"].unique()) #클러스터 라벨의 고유값 출력. 0~3의 값을 가짐.
+customer_clustering.head()
+```
+![image](https://github.com/user-attachments/assets/bf2210bc-79ba-4e85-a94a-865786967a48)
+
+## <span style= 'background-color: #f1f8ff'>4-3: 클러스터링 결과를 분석하자
+🗃️ 칼럼명 변경 및 데이터 수 계산
+```python
+customer_clustering.columns = ["월평균값","월중앙값","월최댓값","월최솟값","회원기간","cluster"]
+customer_clustering.groupby("cluster").count()
+```
+![image](https://github.com/user-attachments/assets/55f42264-a340-44e4-91d6-04210c11c902)
+
+🔎 그룹 0이 가장 많고 이후 그룹 3, 그룹 2, 그룹 1의 순서로 많다는 것을 알 수 있음.
+
+🗃️ 클러스터링 결과 분석
+```python
+customer_clustering.groupby("cluster").mean()
+```
+![image](https://github.com/user-attachments/assets/ca20e19b-9e44-42ea-b161-fc18a6904087)
+
+1. 그룹 2는 회원 기간이 짧지만, 이용률이 높음.
+2. 그룹 1은 회원 기간이 짧고 가장 이용률이 낮음.
+3. 그룹 3과 그룹 0은 그룹 1, 그룹 2보다 회원 기간이 긺.
+4. 그룹 3은 회원 기간은 길지만 이용률이 약간 낮음.
+
+## <span style= 'background-color: #f1f8ff'>4-4: 클러스터링 결과를 가시화하자
+🔎 차원 축소: 비지도 학습의 일종으로, 정보를 되도록 잃지 않게 하면서 새로운 축을 만드는 것.\
+🔎 주성분 분석: 차원 축소의 대표적인 방법.
+
+🗃️ 클러스터링 결과 가시화
+```python
+from sklearn.decomposition import PCA
+X = customer_clustering_sc
+pca = PCA(n_components=2)
+pca.fit(X)
+x_pca = pca.transform(X)
+pca_df = pd.DataFrame(x_pca)
+pca_df["cluster"] = customer_clustering["cluster"]
+
+import matplotlib.pyplot as plt
+%matplotlib inline
+for i in customer_clustering["cluster"].unique():
+    tmp = pca_df.loc[pca_df["cluster"]==i]
+    plt.scatter(tmp[0], tmp[1])
+```
+![image](https://github.com/user-attachments/assets/dc4aa704-e479-4639-883d-6efa324b16ce)
+
+🔎 그래프의 색이 깨끗하게 나누어진 것으로 보아 정보를 보존한 채 깔끔하게 축소됐다는 것을 알 수 있음.
+
+## <span style= 'background-color: #f1f8ff'>4-5: 클러스터링 결과를 바탕으로 탈퇴 회원의 경향을 파악하자
+🗃️ 탈퇴 회원 특정: is_deleted 열을 추가하여 해당 열을 기준으로 구분.
+```python
+customer_clustering = pd.concat([customer_clustering, customer], axis=1) #인덱스로 연결된 경우 concat으로 결합 가능.
+customer_clustering.groupby(["cluster","is_deleted"],as_index=False).count()[["cluster","is_deleted","customer_id"]]
+```
+![image](https://github.com/user-attachments/assets/d94db1fc-aadf-49a8-8e5d-116300b355fa)
+
+🔎 결과 분석: 그룹 0은 골고루 포함, 그룹 1은 탈퇴회원만 있고 그룹 2와 그룹 3은 지속 회원이 많음. 앞선 집계 결과까지 고려하면 그룹 2는 회원 기간이 짧지만 초기에 전체적으로 이용률이 높으며, 그룹 3은 회원 기간이 길고 이용률이 그룹 2보다 낮지만 지속 회원이 많은 안정적인 그룹이라는 것을 알 수 있음.
+
+🗃️ 정기적 이용 여부 확인
+```python
+customer_clustering.groupby(["cluster","routine_flg"],as_index=False).count()[["cluster","routine_flg","customer_id"]]
+```
+![image](https://github.com/user-attachments/assets/3cd8964c-2fd1-4735-9c0e-c87035c25248)
+
+🔎 지속 회원이 많은 그룹 0, 그룹 3에는 정기적으로 이용하는 회원이 많음.
+
+## <span style= 'background-color: #f1f8ff'>4-6: 다음 달의 이용 횟수 예측을 위해 데이터를 준비하자
+🔎 고객의 과거 행동 데이터로부터 다음 달의 이용 횟수를 예측하는 경우에는 지도학습의 **회귀 분석**을 이용. 이번에 예측하고 싶은 이용 횟수도 숫자 데이터이기 때문에 회귀분석이 가능.
+
+🔎 각 회원의 행동 데이터를 이용해 학습해야 하기에 특정 고객의 특정 월별 데이터를 작성해야 함.
+
+🗃️ 연월, 회원별 데이터 집계
+```python
+uselog["usedate"] = pd.to_datetime(uselog["usedate"])
+uselog["연월"] = uselog["usedate"].dt.strftime("%Y%m")
+uselog_months = uselog.groupby(["연월","customer_id"],as_index=False).count()
+uselog_months.rename(columns=("log_id":"count"), inplace=True)
+del uselog_months["usedate"]
+uselog_months.head()
+```
+
+🗃️ 5개월분의 이용 횟수와 다음달 이용 횟수 저장
+```python
+year_months = list(uselog_months["연월"].unique())
+predict_data = pd.DataFrame()
+for i in range(6, len(year_months)):
+    tmp = uselog_months.loc[uselog_months["연월"]==year_months[i]]
+    tmp.rename(columns={"count":"count_pred"}, inplace=True)
+    for j in range(1, 7):
+        tmp_before = uselog_months.loc[uselog_months["연월"]==year_months[i-j]]
+        del tmp_before["연월"]
+        tmp_before.rename(columns={"count":"count_{}".format(j-1)}, inplace=True)
+        tmp = pd.merge(tmp, tmp_before, on="customer_id", how="left")
+    predict_data = pd.concat([predict_data, tmp], ignore_index=True)
+predict_data.head()
+```
+![image](https://github.com/user-attachments/assets/93f4c971-ee66-430c-a6f7-59bf24502d74)
+
+🗃️ 결측치 제거: 가입 기간이 짧아서 데이터가 존재하지 않는 회원의 기간을 6개월 이상 재적 중인 것으로 변경.
+```python
+predict_data = predict_data.dropna()
+predict_data = predict_data.reset_index(drop=True)
+predict_data.head()
+```
+
+## <span style= 'background-color: #f1f8ff'>4-7: 특징이 되는 변수를 추가하자
+🔎 회원 기간은 시계열 변화를 볼 수 있기 때문에 기본 데이터가 시계열 데이터인 이번 경우에 추가하면 유효할 가능성이 높음.
+
+🗃️ start_date 칼럼 추가
+```python
+predict_data = pd.merge(predict_data, customer[["customer_id", "start_date"]], on = "customer_id", how="left")
+predict_data.head()
+```
+![image](https://github.com/user-attachments/assets/267f4a1b-f7f3-42bb-9b48-b6f067a96171)
+
+🗃️ 회원 기간 월 단위 작성
+```python
+predict_data["now_date"] = pd.to_datetime(predict_data["연월"], format="%Y%m")
+predict_data["start_date"] = pd.to_datetime(predict_date["start_date"])
+from dateutil.relativedelta import relativedelta
+predict_data["period"] = None
+for i in range(len(predict_data)):
+    delta = relativedelta(predict_data["now_date"][i], predict_data["start_date"][i])
+    predict_data["period"][i] = delta.years*12 + delta.months
+    predict_data.head()
+```
+![image](https://github.com/user-attachments/assets/af00daff-0ead-4d27-83b8-68c46e8c1d6b)
+
+## <span style= 'background-color: #f1f8ff'>4-8: 다음 달 이용 횟수를 예측하는 모델을 구축하자
+🔎 오래된 회원은 가입 시기 데이터가 존재하지 않거나 이용 횟수가 안정적일 가능성이 있기 때문에 오래된 회원은 빼고 모델을 구축.
+
+🗃️ 선형회귀 모델 구축
+```python
+predict_data = predict_data.loc[predict_data["start_date"]>=pd.to_datetime("20180401")]
+from sklearn import linear_model
+import sklearn.model_selection
+model = linear_model.LinearRegression()
+X = predict_data[["count_0","count_1","count_2","count_3","count_4","count_5","period"]]
+y = predict_data["count_pred"]
+X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X,y)
+model.fit(X_train, y_train)
+```
+
+🗃️ 정확도 검증
+```python
+print(model.score(X_train, y_train))
+print(model.score(X_test, y_test))
+```
+0.5999081481174675\
+0.6303741069404682
+
+## <span style= 'background-color: #f1f8ff'>4-9: 모델에 기여하는 변수를 확인하자
+🔎 정확도가 높은 모델이라도 설명이 불가능하면 의미 없음! 설명이 가능해야 하기에 모델에 기여하고 있는 변수에 대한 이해가 필요!
+
+🗃️ 설명 변수마다 기여하는 계수 출력
+```python
+coef = pd.DataFrame({"feature_names":X.columns, "coefficient":model.coef_})
+coef
+```
+![image](https://github.com/user-attachments/assets/813b28f9-c4e1-4e6d-9c1e-9dc79dc5a4a2)
+
+🔎 count_0가 가장 크고, 과거로 거슬러 올라갈수록 기여도가 작아지는 경향이 있음 => 이전 달의 이용 횟수가 다음 달의 이용 횟수에 영향을 미치고 있음.
+
+## <span style= 'background-color: #f1f8ff'>4-10: 다음 달의 이용 횟수를 예측하자
+🗃️ 다음 달 이용 횟수 예측
+```python
+x1 = [3, 4, 4, 6, 8, 7, 8]
+x2 = [2, 2, 3, 3, 4, 6, 8]
+x_pred = [x1, x2]
+
+model.predict(x_pred)
+```
+array([3.8134916, 1.98185194])
+
+
+### 출처 : 파이썬 데이터분석 실무 테크닉 100
