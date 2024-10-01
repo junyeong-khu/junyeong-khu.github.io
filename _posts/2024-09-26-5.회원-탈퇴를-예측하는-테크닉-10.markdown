@@ -1,0 +1,317 @@
+---
+layout: post
+title: "파이썬 데이터분석 실무 테크닉 100 : 5. 회원 탈퇴를 예측하는 테크닉 10"
+date: 2024-09-26 03:01:45 +0900
+categories: 파이썬_데이터분석_실무_테크닉_100
+---
+## <span style= 'background-color: #f1f8ff'>고객의 소리
+🗣️ 이전 상세 분석에서 꽤 다양한 것들을 알 수 있었기 때문에 계속해서 분석을 부탁드립니다. 상세 분석 덕분에 새롭게 알게 된 것은 많지만, 잘 생각해 보면 회원을 정착시키고 늘려가는 것보다 탈퇴를 막는 것이 중요한 것 같습니다. 탈퇴 회원이 왜 탈퇴했는지 알 수 있을까요?
+
+## <span style= 'background-color: #f1f8ff'>5-0: 전제조건
+💡 3장 및 4장에 이어 스포츠 센터의 데이터를 사용합니다.\
+지금까지의 데이터 외에 4장에서 작성한 이용 이력을 연월/회원별로 집계한 use_log_months.csv 데이터가 추가됐습니다.\
+여기서는 use_log_months.csv와 customer_join.csv만 사용하겠습니다.
+![image](https://github.com/user-attachments/assets/006c6673-79b8-4662-867e-55327bf4af26)
+
+## <span style= 'background-color: #f1f8ff'>5-1: 데이터를 읽어 들이고 이용 데이터를 수정하자
+🗃️ 데이터 리딩
+```python
+import pandas as pd
+customer = pd.read_csv('customer_join.csv')
+uselog_months = pd.read_csv('use_log_months.csv')
+```
+
+🗃️ 데이터 수정: 과거 6개월분의 데이터로부터 이용 횟수를 예측하는 경우 가입 5개월 이내인 회원의 탈퇴는 예측할 수 없음. 또, 불과 몇 개월 만에 그만둔 회원도 많기 때문에 과거 6개월분의 데이터를 이용한 예측은 의미가 없음. 따라서 이달과 1개월 전의 이용 횟수를 집계한 데이터를 작성.
+```python
+year_months = list(uselog_months["연월"].unique())
+uselog = pd.DataFrame()
+for i in range(1, len(year_months)):
+    tmp = uselog_months.loc[uselog_months["연월"]==year_months[i]]
+    tmp.rename(columns={"count":"count_0"}, inplace=True)
+    tmp_before = uselog_months.loc[uselog_months["연월"]==year_months[i-1]]
+    del tmp_before["연월"]
+    tmp_before.rename(columns={"count":"count_1"}, inplace=True)
+    tmp = pd.merge(tmp, tmp_before, on="customer_id", how="left")
+    uselog = pd.concat([uselog, tmp], ignore_index=True)
+uselog.head()
+```
+![image](https://github.com/user-attachments/assets/cd2f829c-cb97-463e-8e3b-acc5560283c5)
+
+
+## <span style= 'background-color: #f1f8ff'>5-2: 탈퇴 전월의 탈퇴 고객 데이터를 작성하자
+🔎 이 스포츠 센터에서는 월말까지 탈퇴 신청을 해야 다음 달 말에 탈퇴할 수 있음. => 탈퇴 전월을 탈퇴 월로 치환하고, 그 1개월 전의 데이터로부터 탈퇴 전월에 탈퇴 신청을 할 확률을 예측해야 탈퇴를 미연에 방지할 수 있음.
+
+🗃️ 탈퇴 전월의 탈퇴 고객 데이터 작성
+```python
+from dateutil.relativedelta import relativedelta
+exit_customer = customer.loc[customer["is_deleted"]==1]
+exit_customer["exit_date"] = None
+exit_customer["end_date"] = pd.to_datetime(exit_customer["end_date"])
+for i in range(len(exit_customer)):
+    exit_customer["exit_date"].iloc[i] = exit_customer["end_date"].iloc[i] - relativedelta(months=1)
+exit_customer["연월"] = pd.to_datetime(exit_customer["exit_date"]).dt.strftime("%Y%m")
+uselog["연월"] = uselog["연월"].astype(str)
+exit_uselog = pd.merge(uselog, exit_customer, on=["customer_id", "연월"], how="left")
+print(len(uselog))
+exit_uselog.head()
+```
+33851\
+![image](https://github.com/user-attachments/assets/f678ee6a-71ed-425e-8d7b-0445486a1d03)
+
+⊕ loc[], iloc[]의 차이\
+1. loc[행 레이블, 열 레이블]: 인덱스 레이블을 기반으로 선택할 때 사용하며 레이블로 인덱싱하고 슬라이싱의 끝 값이 포함됨.
+2. iloc[행 인덱스, 열 인덱스]: 행과 열을 위치 기반으로 선택할 때 사용하며 정수 위치(0부터 시작)로 인덱싱하고 슬라이싱의 끝 값이 포함되지 않음.
+
+🗃️ 결측 데이터 제거: 탈퇴 회원의 탈퇴 전월의 데이터라 결측치가 많음.
+```python
+exit_uselog = exit_uselog.dropna(subset=["name"])
+print(len(exit_uselog))
+print(len(exit_uselog["customer_id"].unique()))
+exit_uselog.head()
+```
+1104\
+1104
+![image](https://github.com/user-attachments/assets/b32d5065-46b3-4192-892a-9be0fea5d731)
+
+
+## <span style= 'background-color: #f1f8ff'>5-3: 지속 회원의 데이터를 작성하자
+🗃️ 지속 회원 데이터 작성
+```python
+conti_customer = customer.loc[customer["is_deleted"]==0]
+conti_uselog = pd.merge(uselog, conti_customer, on=["customer_id"], how="left")
+print(len(conti_uselog))
+conti_uselog = conti_uselog.dropna(subset=["name"])
+print(len(conti_uselog))
+```
+33851\
+27422
+
+🗃️ 중복 회원 데이터 삭제: 탈퇴 데이터와의 데이터 수를 맞추기 위함.
+```python
+conti_uselog = conti_uselog.sample(frac=1).reset_index(drop=True)
+conti_uselog = conti_uselog.drop_duplicates(subset="customer_id")
+print(len(conti_uselog))
+conti_uselog.head()
+```
+2842\
+![image](https://github.com/user-attachments/assets/7f892270-4502-4f9d-8627-0ad8c5e7ddf2)
+
+⊕ frac=1: 전체 행 선택\
+⊕ reset_index(drop=True): 인덱스 새로 만들고 기존 인덱스 삭제
+
+🗃️ 지속 회원 데이터와 탈퇴 회원 데이터 결합
+```python
+predict_data = pd.concat([conti_uselog, exit_uselog],ignore_index=True)
+print(len(predict_data))
+predict_data.head()
+```
+![image](https://github.com/user-attachments/assets/cf33dad6-4775-4fb1-a43b-b83036236911)
+
+
+## <span style= 'background-color: #f1f8ff'>5-4: 예측할 달의 재적 기간을 작성하자
+🗃️ 재적 기간 열 추가: 시간적 요소가 들어간 데이터는 그것을 변수로 이용하면 좋음.
+```python
+predict_data["period"] = 0
+predict_data["now_date"] = pd.to_datetime(predict_data["연월"], format="%Y%m")
+predict_data["start_date"] = pd.to_datetime(predict_data["start_date"])
+for i in range(len(predict_data)):
+    delta = relativedelta(predict_data["now_date"][i], predict_data["start_date"][i])
+    predict_data["period"][i] = int(delta.years*12 + delta.months)
+predict_data.head()
+```
+![image](https://github.com/user-attachments/assets/6f7251a6-eb07-426a-8df6-f6a6efab01b0)
+
+
+## <span style= 'background-color: #f1f8ff'>5-5: 결측치를 제거하자
+🔎 결측치가 있으면 머신러닝 할 수 없음. => 결측치를 제거하거나 채워넣어야 함.
+
+🗃️ 결측치 갯수 파악
+```python
+predict_data.isna().sum()
+```
+![image](https://github.com/user-attachments/assets/4f5e8489-94fb-4e77-b48d-5875ebffba06)
+
+🔎 end_date와 exit_date는 탈퇴 회원에게만 있어 지속 회원의 행에 관해 결측치로 뜨는 것. 따라서 count_1이 결손된 데이터만 제거.
+
+🗃️ 결측치 제거
+```python
+predict_data = predict_data.dropna(subset=["count_1"])
+predict_data.isna().sum()
+```
+![image](https://github.com/user-attachments/assets/8aad1884-6bd4-46ed-b5d9-aa89fbf0f26d)
+
+
+## <span style= 'background-color: #f1f8ff'>5-6: 문자열 변수를 처리할 수 있게 가공하자
+🔎 카테고리 변수: 머신러닝을 할 때 처리해야 하는 문자열 데이터. => 플래그(더미 변수)를 만들어 머신러닝에 활용.
+
+🗃️ 사용할 데이터 추출: 설명 변수로 count_1, campaign_name, class_name, gender, routine_flg, period를 사용하고, 목적 변수로 is_deleted를 사용.
+```python
+target_col = ["campaign_name", "class_name", "gender", "count_1", "routine_flg", "period", "is_deleted"]
+predict_data = predict_data[target_col]
+predict_data.head()
+```
+![image](https://github.com/user-attachments/assets/0b9d3103-67c7-4c18-8f20-2a204f10e9f8)
+
+🔎 분류는 회귀와 달리 이산치를 목적 변수로 사용.
+
+🗃️ 더미 변수 생성
+```python
+predict_data = pd.get_dummies(predict_data)
+predict_data.head()
+```
+![image](https://github.com/user-attachments/assets/3e60e104-9ad7-45c5-8f32-a182b132a38b)
+
+🗃️ 불필요한 칼럼 제거: 더미 변수의 특성상 일부 열은 의미가 없음. 따라서 제거 필요.
+```python
+del predict_data["campaign_name_일반"]
+del predict_data["class_name_야간"]
+del predict_data["gender_M"]
+predict_data.head()
+```
+![image](https://github.com/user-attachments/assets/693aa2bd-245f-4711-ac59-253fe2e42715)
+
+📌 문자열 데이터 처리 방법
+1. 레이블 인코딩: feature의 유형에 따라 숫자를 부여. 일괄적인 숫자값으로 변환되기에 숫자의 크고 작음에 대한 특성이 작용되어 예측 성능이 떨어질 수 있음. 선형 회귀와 같은 알고리즘의 경우 숫자의 특성을 반영하기에 레이블 인코딩을 사용하면 안됨.
+
+2. 원-핫 인코딩: feature의 유형에 따라 새로운 feature를 추가해 고유 값에 해당하는 칼럼에만 숫자 1을 표시하고, 나머지 칼럼에는 0을 표시하는 방법. 해당 책에서도 사용한 방식으로 사이킷런을 사용하는 방법과 판다스를 사용하는 방법이 있음.
+
+![image](https://github.com/user-attachments/assets/d31bf387-07f5-41d4-91b5-703dbc1b6dbd)
+
+
+## <span style= 'background-color: #f1f8ff'>5-7: 의사결정 트리를 사용해서 탈퇴 예측 모델을 구축하자
+🔎 의사결정 트리: 지도학습의 분류 알고리즘으로 대단히 직관적이며 이해하기 쉽고 모델의 설명도 간단해 처음에 테스트용으로 자주 사용함.
+
+![image](https://github.com/user-attachments/assets/bc4a3a42-9703-4591-882b-3d193c529ac8)
+
+![image](https://github.com/user-attachments/assets/27113839-7f9b-429c-8439-f0c365d75e2f)
+
+🗃️ 의사결정 트리 작성
+```python
+from sklearn.tree import DecisionTreeClassifier
+import sklearn.model_selection
+
+exit = predict_data.loc[predict_data["is_deleted"]==1]
+conti = predict_data.loc[predict_data["is_deleted"]==0].sample(len(exit))
+
+X = pd.concat([exit, conti], ignore_index=True)
+y = X["is_deleted"]
+del X["is_deleted"]
+X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X,y)
+
+model = DecisionTreeClassifier(random_state=0)
+model.fit(X_train, y_train)
+y_test_pred = model.predict(X_test)
+print(y_test_pred)
+```
+![image](https://github.com/user-attachments/assets/455b0c17-bc54-4144-9f09-6c07bfda04f7)
+
+🗃️ 실제 값 저장
+```python
+result_test = pd.DataFrame({"y_test":y_test, "y_pred":y_test_pred})
+results_test.head()
+```
+![image](https://github.com/user-attachments/assets/42ac3e1f-150e-45ae-86e0-8981ab126fd8)
+
+🔎 첫 번째, 두 번째, 다섯 번째가 정답이고 세 번째, 네 번째는 오답.
+
+
+
+## <span style= 'background-color: #f1f8ff'>5-8: 예측 모델을 평가하고 모델을 튜닝해보자
+🗃️ 정답률 계산: 정답 수를 전체 데이터 개수로 나누어 계산.
+```python
+correct = len(results_test.loc[results_test["y_test"]==results_test["y_pred"]])
+data_count = len(results_test)
+score_test = correct / data_count
+print(score_test)
+```
+0.9163498098859315
+
+🗃️ 과적합 여부 파악
+```python
+print(model.score(X_test, y_test))
+print(model.score(X_train, y_train))
+```
+0.9163498098859315\
+0.9816223067173637\
+➡︎ 과대적합
+
+🔎 과대적합 해결방법: 데이터 늘리기, 변수 재검토, 모델의 파라미터 변경 등
+
+🗃️ 모델 파라미터 변경: 트리의 깊이를 얕게 하여 모델 단순화.
+```python
+X = pd.concat([exit, conti], ignore_index=True)
+y = X["is_deleted"]
+del X["is_deleted"]
+X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X,y)
+
+model = DecisionTreeClassifier(random_state=0, max_depth=5)
+model.fit(X_train, y_train)
+print(model.score(X_test, y_test))
+print(model.score(X_train, y_train))
+```
+0.9296577946768061\
+0.926489226869455\
+➡︎ 과대적합 해결
+
+
+## <span style= 'background-color: #f1f8ff'>5-9: 모델에 기여하는 변수를 확인하자
+🗃️ 변수와 중요도 저장
+```python
+importance = pd.DataFrame({"feature_names": X.columns, "coefficient": model.feature_importances_ })
+importance
+```
+![image](https://github.com/user-attachments/assets/82449944-2452-4815-8c66-1210049539fc)
+
+📌 의사결정 트리 결과 가시화
+```python
+import matplotlib.pyplot as plt
+from sklearn.tree import plot_tree
+plt.figure(figsize=(100, 80))
+plot_tree(model, feature_names=X.columns, class_names=['Not Deleted', 'Deleted'], filled=True)
+plt.title('Decision Tree Visualization')
+plt.show()
+```
+![image](https://github.com/user-attachments/assets/68a32434-c42e-43df-91dc-db75a8ed06de)
+
+![image](https://github.com/user-attachments/assets/53bc32e8-cd3e-4359-86d1-db33942171a3)
+
+
+## <span style= 'background-color: #f1f8ff'>5-10: 회원 탈퇴를 예측하자
+🗃️ 예측을 위한 데이터 작성
+```python
+count_1 = 3
+routine_flg = 1
+period = 10
+campaign_name = "입회비무료"
+class_name = "종일"
+gender = "M"
+
+if campaign_name == "입회비반값할인":
+    campaign_name_list = [1, 0]
+elif campaign_name == "입회비무료":
+    campaign_name_list = [0, 1]
+elif campaign_name == "일반":
+    campaign_name_list = [0, 0]
+if class_name == "종일":
+    class_name_list = [1, 0]
+elif class_name == "주간":
+    class_name_list = [0, 1]
+elif class_name == "야간":
+    class_name_list = [0, 0]
+if gender == "F":
+    gender_list = [1]
+elif gender == "M":
+    gender_list = [0]
+input_data = [count_1, routine_flg, period]
+input_data.extend(campaign_name_list)
+input_data.extend(class_name_list)
+input_data.extend(gender_list)
+
+print(model.predict([input_data]))
+print(model.predict_proba([input_data]))
+```
+[1.]\
+[[0.01587302 0.98412698]]
+
+
+### 출처 : 파이썬 데이터분석 실무 테크닉 100

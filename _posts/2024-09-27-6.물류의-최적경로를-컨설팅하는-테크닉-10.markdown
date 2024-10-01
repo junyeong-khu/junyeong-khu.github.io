@@ -1,0 +1,409 @@
+---
+layout: post
+title: "파이썬 데이터분석 실무 테크닉 100 : 6. 물류의 최적경로를 컨설팅하는 테크닉 10"
+date: 2024-09-27 03:01:45 +0900
+categories: 파이썬_데이터분석_실무_테크닉_100
+---
+## <span style= 'background-color: #f1f8ff'>고객의 소리
+🗣️ 우리 회사는 제품의 제조에서 물류까지 도맡아서 하고 있습니다. 최근 데이터 분석이라는 것을 알게 되어 상담을 받아 보려고 합니다. 최근 회사 이익이 감소하고 있어서 물류비용을 줄이고 효율화를 생각하고 있습니다. 먼저, 제품의 부품을 보관하는 창고에서 생산 공장까지 운송 비용을 낮출 수 있을지 검토하고 싶습니다. 분석을 부탁드립니다.
+
+
+## <span style= 'background-color: #f1f8ff'>6-0: 전제조건
+💡 부품을 보관하는 창고에서 생산 공장으로 부품을 운송합니다. 각 창고와 공장 구간의 운송 비용은 과거 데이터에서 정량적으로 계산돼 있습니다.\
+집계 기간은 2019년 1월 1일 ~ 2019년 12월 32일 입니다.\
+북부지사와 남부지사의 데이터를 시스템에서 추출해 CSV로 제공합니다.
+![image](https://github.com/user-attachments/assets/0a4733f3-864b-4f20-9960-6a50455e0cc5)
+
+
+## <span style= 'background-color: #f1f8ff'>6-1: 물류 데이터를 불러오자
+🗃️ 데이터 리딩
+```python
+#공장 데이터 리딩
+
+import pandas ad pd
+factories = pd.read_csv("tb1_factory.csv", index_col=0)
+factories
+```
+![image](https://github.com/user-attachments/assets/9094800e-9531-40b3-8abc-0b4bffb30476)
+
+```python
+#창고데이터 리딩
+
+warehouses = pd.read_csv("tb1_warehouse.csv", index_col=0)
+warehouses
+```
+![image](https://github.com/user-attachments/assets/01c6d404-8e59-4327-b6e5-72bc1bf747a1)
+
+```python
+#비용 데이터 리딩
+
+cost = pd.read_csv("rel_cost.csv", index_col=0)
+cost.head()
+```
+![image](https://github.com/user-attachments/assets/7e46eafb-7f0d-426f-b17a-bfdacec3be1c)
+
+```python
+#운송 실적 데이터 리딩
+
+trans = pd.read_csv("tb1_transaction.csv", index_col=0)
+trans.head()
+```
+![image](https://github.com/user-attachments/assets/6ee977d4-1116-44f0-ad5f-96005ecff579)
+
+🔎 공장 데이터 'FCID'와 창고 데이터 'WHID'는 비용 데이터나 운송 실적 데이터에도 있는 것으로 보아 이것이 키인 것을 알 수 있음.
+
+🗃️ 데이터 결합: 분석의 기초가 될 데이터인 운송 실적을 중심으로 레프트 조인.
+```python
+#비용 데이터 추가
+
+join_data = pd.merge(trans, cost, left_on=["ToFc","FromWH"], right_on=["FCID","WHID"], how="left")
+join_data.head()
+```
+![image](https://github.com/user-attachments/assets/7452df4c-a31a-41c8-b955-af1ea3cff9a1)
+
+🔎 공통된 열이 없어서 키를 같은 내용의 키를 지정하여 결합함.
+
+```python
+#공장 데이터 추가
+
+join_data = pd.merge(join_data, factories, left_on="ToFC", right_on="FCID", how="left")
+join_data.head()
+```
+![image](https://github.com/user-attachments/assets/6eea62f3-c567-43a0-8e57-76a67dd03871)
+
+```python
+#창고 데이터 추가
+
+join_data = pd.merge(join_data, warehouses, left_on="FromWH", right_on="WHID", how="left")
+
+#칼럼 순서 정렬
+
+join_data = join_data[["TransactionDate","Quantity","Cost","ToFC","FCName","FCDemand","FromWH","WHName","WhSupply","WHRegion"]]
+join_data.head()
+```
+![image](https://github.com/user-attachments/assets/79a4cbb2-d894-4c6c-806e-d15e1300b8bd)
+
+🔎 연결에 사용하고 남은 FCID 등은 데이터에서 삭제.
+
+🗃️ 북부, 남부 데이터 추출: 데이터 비교를 위해 북부와 남부의 데이터를 각각 추출.
+```python
+#북부 데이터 추출
+
+north = join_data.loc[join_data["WHRegion"]=="북부"]
+north.head()
+```
+![image](https://github.com/user-attachments/assets/230f16d7-ff58-4564-9e84-d437c9f3904b)
+
+```python
+#남부 데이터 추출
+
+south = join_data.loc[join_data["WHRegion"]=="남부"]
+south.head()
+```
+![image](https://github.com/user-attachments/assets/47f38ede-8bc7-488d-9809-4a6795e1bb7b)
+
+
+## <span style= 'background-color: #f1f8ff'>6-2: 현재 운송량과 비용을 확인해 보자
+🗃️ 총 운송 비용 집계
+```python
+print("북부지사 총비용: " + str(north["Cost"].sum()) + "만원")
+print("남부지사 총비용: " + str(south["Cost"].sum()) + "만원")
+```
+북부지사 총비용: 2189.3만원\
+남부지사 총비용: 2062.0만원
+
+🗃️ 총 운송 부품 개수 집계
+```python
+print("북부지사의 총부품 운송 개수: " + str(north["Quantity"].sum()) + "개")
+print("남부지사의 총부품 운송 개수: " + str(south["Quantity"].sum()) + "개")
+```
+북부지사의 총부품 운송 개수: 49146개\
+남부지사의 총부품 운송 개수: 50214개
+
+🗃️ 운송 부품 1개당 운송 비용 집계
+```python
+tmp = (north["Cost"].sum() / north["Quantity"].sum()) * 10000
+print("북부지사의 부품 1개당 운송 비용: " + str(int(tmp)) + "원")
+tmp = (south["Cost"].sum() / south["Quantity"].sum()) * 10000
+print("남부지사의 부품 1개당 운송 비용: " + str(int(tmp)) + "원")
+```
+북부지사의 부품 1개당 운송 비용: 445원\
+남부지사의 부품 1개당 운송 비용: 410원
+
+🗃️ 각 지사의 평균 운송 비용 집계
+```python
+cost_chk = pd.merge(cost, factories, on="FCID", how="left")
+print("북부지사의 평균 운송 비용: " + str(cost_chk["Cost"].loc[cost_chk["FCRegion"]=="북부"].mean()) + "원")
+print("남부지사의 평균 운송 비용: " + str(cost_chk["Cost"].loc[cost_chk["FCRegion"]=="남부"].mean()) + "원")
+```
+북부지사의 평균 운송 비용: 1.075원\
+남부지사의 평균 운송 비용: 1.05원
+
+🔎 각 지사의 평균 운송 비용은 거의 같으므로 북부지사보다 남부지사 쪽이 '효율 높게' 부품을 운송하고 있다는 것을 알 수 있음.
+
+
+## <span style= 'background-color: #f1f8ff'>6-3: 네트워크를 가시화해 보자
+🔎 최적화 문제를 푸는 라이브러리의 단순 사용 방법을 배우는 것은 실제 현장에서 도움이 되지 않음. 최적화 프로그램에 의해 도출된 계획을 가시화하는 프로세스와 몇 가지 조건을 실제로 만족하는지를 확인하는 프로세스가 중요.
+
+🗃️ 네트워크 가시화: 최적 경로를 가시화하는 방법.
+```python
+import networkx as nx
+import matplotlib.pyplot as plt
+
+#그래프 객체 생성
+G=nx.Graph()
+
+#노드 설정
+G.add_node("nodeA")
+G.add_node("nodeB")
+G.add_node("nodeC")
+
+#엣지 설정
+G.add_edge("nodeA","nodeB")
+G.add_edge("nodeA","nodeC")
+G.add_edge("nodeB","nodeC")
+
+#좌표 설정
+pos={}
+pos["nodeA"]=(0,0)
+pos["nodeB"]=(1,1)
+pos["nodeC"]=(0,1)
+
+#그리기
+nx.draw(G,pos)
+
+#표시
+plt.show()
+```
+![image](https://github.com/user-attachments/assets/1a50f3fc-8a36-4767-9272-37e43653087e)
+
+🔎 네트워크 가시화의 효과: 숫자만으로 알기 어려운 물류의 쏠림과 같은 전체 그림을 파악할 수 있음.
+
+
+## <span style= 'background-color: #f1f8ff'>6-4: 네트워크에 노드를 추가해 보자
+🗃️ 노드 추가
+```python
+G.add_node("nodeD")
+
+G.add_edge("nodeA","nodeD")
+
+pos["nodeD"]=(1,0)
+
+nx.draw(G,pos, with_labels=True) #노드에 붙은 이름 표시.
+```
+![image](https://github.com/user-attachments/assets/20e7c2a9-1f6f-4759-a8e6-f31168a58dea)
+
+
+## <span style= 'background-color: #f1f8ff'>6-5: 경로에 가중치를 부여하자
+🗃️ 가중치 부여: 경로에 가중치를 부여하여 노드 사이읭 엣지 굵기를 바꾸면 물류의 최적 경로를 알기 쉽게 가시화 가능.
+```python
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import networkx as nx
+
+#데이터 불러오기
+df_w = pd.read_csv('network_weight.csv')
+df_p = pd.read_csv('network_pos.csv')
+
+#엣지 가중치 리스트화
+size = 10
+edge_weights = []
+for i in range(len(df_w)):
+    for j in range(len(df_w.columns)):
+        edge_weights.append(df_w.iloc[i][j]*size)
+
+#그래프 객체 생성
+G = nx.Graph()
+
+#노드 설정
+for i in range(len(df_w.columns)):
+    G.add_node(df_w.columns[i])
+
+#엣지 설정
+for i in range(len(df_w.columns)):
+    for j in range(len(df_w.columns)):
+        G.add_edge(df_w.columns[i],df_w.columns[j])
+
+#좌표 설정
+pos = {}
+for i in range(len(df_w.columns)):
+    node = df_w.columns[i]
+    pos[node] = (df_p[node][0],df_p[node][1])
+
+#그리기
+nx.draw(G, pos, with_labels=True,font_size=16, node_size = 1000, node_color='k', font_color='w', width=edge_weights)
+
+#표시
+plt.show()
+```
+![image](https://github.com/user-attachments/assets/220213b1-f90e-4b97-b55c-7f8289e75b6f)
+
+
+## <span style= 'background-color: #f1f8ff'>6-6: 운송 경로 정보를 불러오자
+🗃️ 운송 경로 분석: 최소의 비용으로 부품을 운송하기 위해 어떤 창고에서 어떤 공장으로 어느 정도 양을 운송해야 하는지 검토.
+![image](https://github.com/user-attachments/assets/a69b1638-1be6-49b9-ac96-bc34c0c27117)
+
+```python
+import pandas as pd
+df_tr = pd.read_csv('trans_route.csv', index_col='공장')
+df_tr.head()
+```
+![image](https://github.com/user-attachments/assets/21cbc0a3-ea12-488f-94b6-3599c864e18e)
+
+🔎 결과에서 어느 창고에서 어느 공장으로의 물류가 많은지는 숫자를 보면 어느 정도 알 수 있지만, 한 번 본 것만으로 전체를 알아내기는 힘듦. 운송 경로 가시화 필요.
+
+
+## <span style= 'background-color: #f1f8ff'>6-7: 운송 경로 정보로 네트워크를 가시화해 보자
+🗃️ 운송 경로 정보 가시화
+```python
+import pandas as pd
+import matplotlib.pyplot as plt
+import networkx as nx
+
+#데이터 불러오기
+df_tr = pd.read_csv('trans_route.csv', index_col="공장")
+df_pos = pd.read_csv('trans_route_pos.csv')
+
+#객체 생성
+G = nx.Graph()
+
+#노드 설정
+for i in range(len(df_pos.columns)):
+    G.add_node(df_pos.columns[i])
+
+#엣지 설정 및 가중치 리스트화
+num_pre = 0
+edge_weights = []
+size = 0.1
+for i in range(len(df_pos.columns)):
+    for j in range(len(df_pos.columns)):
+        if not (i==j):
+            #엣지 추가
+            G.add_edge(df_pos.columns[i],df_pos.columns[j])
+            #엣지 가중치 추가
+            if num_pre<len(G.edges):
+                num_pre = len(G.edges)
+                weight = 0
+                if (df_pos.columns[i] in df_tr.columns)and(df_pos.columns[j] in df_tr.index):
+                    if df_tr[df_pos.columns[i]][df_pos.columns[j]]:
+                        weight = df_tr[df_pos.columns[i]][df_pos.columns[j]]*size
+                elif(df_pos.columns[j] in df_tr.columns)and(df_pos.columns[i] in df_tr.index):
+                    if df_tr[df_pos.columns[j]][df_pos.columns[i]]:
+                        weight = df_tr[df_pos.columns[j]][df_pos.columns[i]]*size
+                edge_weights.append(weight)
+
+#좌표 설정
+pos = {}
+for i in range(len(df_pos.columns)):
+    node = df_pos.columns[i]
+    pos[node] = (df_pos[node][0],df_pos[node][1])
+
+#그리기
+nx.draw(G, pos, with_labels=True, font_size=16, node_size = 1000, node_color='k', font_color='w', width=edge_weights)
+
+#표시
+plt.show()
+```
+![image](https://github.com/user-attachments/assets/b68f8a0f-80bb-4995-a563-336500230c59)
+
+🔎 어느 창고에서 어느 공장으로든 골고루 엣지가 보임. 운송 비용을 생각하면 운송 경로는 어느 정도 집중되는 편이 효율 높을 것이기 때문에 개선의 여지가 보임.
+
+
+## <span style= 'background-color: #f1f8ff'>6-8: 운송 비용 함수를 작성하자
+🔎 최적화 문제의 흐름: 최소화(또는 최대화)하고 싶은 것을 '목적함수'라는 함수로 정의. 이후 최소화(또는 최대화)를 함에 있어 지켜야 할 조건인 '제약 조건'을 정의. 생각할 수 있는 여러 가지 운송 경로의 조합 중에서 제약 조건을 만족시키면서 목적함수를 최소화(또는 최대화)하는 조합을 선택.
+
+🗃️ 목적함수(운송 비용 함수) 작성
+```python
+import pandas as pd
+
+#데이터 불러오기
+df_tr = pd.read_csv('trans_route.csv', index_col="공장")
+df_tc = pd.read_csv('trans_cost.csv', index_col="공장")
+
+#운송 비용 함수
+def trans_cost(df_tr,df_tc):
+    cost = 0
+    for i in range(len(df_tc.index)):
+        for j in range(len(df_tr.columns)):
+            cost += df_tr.iloc[i][j]*df_tc.iloc[i][j]
+    return cost
+
+print("총 운송 비용:"+str(trans_cost(df_tr,df_tc)))
+```
+총 운송 비용:1493
+
+
+## <span style= 'background-color: #f1f8ff'>6-9: 제약 조건을 만들어보자
+🗃️ 제약 조건 설정: 각 창고는 공급 가능한 부품 수에 제한이 있고, 각 공장은 채워야 할 최소한의 제품 제조량이 있음.
+```python
+import pandas as pd
+
+#데이터 불러오기
+df_tr = pd.read_csv('trans_route.csv', index_col="공장")
+df_demand = pd.read_csv('demand.csv')
+df_supply = pd.read_csv('supply.csv')
+
+#수요측 제약 조건
+for i in range(len(df_demand.columns)):
+    temp_sum = sum(df_tr[df_demand.columns[i]])
+    print(str(df_demand.columns[i])+"으로 운송량:"+str(temp_sum)+" (수요량:"+str(df_demand.iloc[0][i])+")")
+    if temp_sum>=df_demand.iloc[0][i]:
+        print("수요량을 만족시키고있음 ")
+    else:
+        print("수요량을 만족시키지 못하고 있음. 운송경로 재계산 필요")
+
+#공급측 제약 조건
+for i in range(len(df_supply.columns)):
+    temp_sum = sum(df_tr.loc[df_supply.columns[i]])
+    print(str(df_supply.columns[i])+" 부터의 운송량:"+str(temp_sum)+" (공급한계:"+str(df_supply.iloc[0][i])+")")
+
+    if temp_sum<=df_supply.iloc[0][i]:
+        print("공급한계 범위내")
+    else:
+        print("공급한계 초과. 운송경로 재계산 필요")
+```
+![image](https://github.com/user-attachments/assets/b35adbf3-c0ef-4e91-a8d6-7448f5fb7209)
+
+
+## <span style= 'background-color: #f1f8ff'>6-10: 운송 경로를 변경해서 운송 비용 함수의 변화를 확인하자
+🗃️ 운송 경로 변경
+```python
+import pandas as pd
+import numpy as np
+
+#데이터 불러오기
+df_tr_new = pd.read_csv('trans_route_new.csv', index_col="공장")
+print(df_tr_new)
+
+#총 운송 비용 재계산
+print("총 운송 비용(변경 후) :"+str(trans_cost(df_tr_new,df_tc)))
+
+#제약 조건 계산 함수
+#수요측
+def condition_demand(df_tr,df_demand):
+    flag = np.zeros(len(df_demand.columns))
+    for i in range(len(df_demand.columns)):
+        temp_sum = sum(df_tr[df_demand.columns[i]])
+        if (temp_sum>=df_demand.iloc[0][i]):
+            flag[i] = 1
+    return flag
+
+#공극측
+def condition_supply(df_tr,df_supply):
+    flag = np.zeros(len(df_supply.columns))
+    for i in range(len(df_supply.columns)):
+        temp_sum = sum(df_tr.loc[df_supply.columns[i]])
+        if temp_sum<=df_supply.iloc[0][i]:
+            flag[i] = 1
+    return flag
+
+print("수요조건 계산결과:"+str(condition_demand(df_tr_new,df_demand)))
+print("공급조건 계산결과:"+str(condition_supply(df_tr_new,df_supply)))
+```
+![image](https://github.com/user-attachments/assets/0526a179-fa71-41e1-a34a-6543feedd3c6)
+
+🔎 W1에서 F4로의 운송을 줄이고, 그만큼을 W2에서 F4로의 운송으로 보충하면 운송 비용이 1493만원에서 1428만원으로 감소함. 다만 두 번째 공급 조건을 만족시키지 못해 공장 W2의 공급 한계를 넘어버림.
+
+
+### 출처 : 파이썬 데이터분석 실무 테크닉 100
