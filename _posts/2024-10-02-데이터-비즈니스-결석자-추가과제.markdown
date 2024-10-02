@@ -1,0 +1,95 @@
+---
+layout: post
+title: "데이터 비즈니스 & 추천 시스템: 결석자 추가과제"
+date: 2024-10-02 04:01:45 +0900
+categories: 데이터_비즈니스_&_추천_시스템
+---
+## <span style= 'background-color: #f1f8ff'>의사결정 트리 모델의 과적합 해결법
+🔎 "이런 경우에는 **데이터 늘리기**, **변수 재검토**, **모델의 파라미터 변경**과 같은 방법을 적용해 가면서 이상적인 모델로 만들어 갑니다." - 파이썬_데이터분석_실무_테크닉_100(122p)
+
+🗃️ 과적합: 기계 학습에서 학습 데이터를 과하게 학습하는 것을 뜻함. 일반적으로 학습 데이터는 실제 데이터의 부분 집합이므로 과적합이 발생할 경우 학습 데이터에 대해서는 오차가 감소하지만 실제 데이터에 대해서는 오차가 증가하게 된다.
+
+🗃️ 의사결정 트리 모델의 과적합 해결법
+1. 데이터 늘리기: 모델이 더 다양한 데이터를 통해 학습하면 일반화 능력이 향상될 수 있음. **데이터 추가 수집**, **데이터 증강**의 방식을 이용해 훈련 데이터를 늘릴 수 있음.
+
+2. 변수 재검토: 불필요하거나 관련성이 낮은 변수를 포함하면 모델이 학습 데이터의 노이즈를 학습하게 되어 과적합이 발생할 수 있음. 불필요한 변수를 제거하기 위해 **상관 분석**, **변수 중요도 평가**, 등을 활용할 수 있음.
+
+➀ 상관 분석: 변수들 간의 상관관계를 분석하여 상관성이 낮은 변수는 제거.\
+➁ 변수 중요도 평가: 머신러닝 모델을 사용하여 각 변수의 중요도를 평가.
+```python
+importance = pd.DataFrame({"feature_names": X.columns, "coefficient": model.feature_importances_ })
+importance
+```
+![image](https://github.com/user-attachments/assets/82449944-2452-4815-8c66-1210049539fc)
+
+➡︎ 기여도가 낮은 변수들을 지우고 재훈련 해보았지만 여전히 과적합 발생.(해당 예제에서 큰 의미 없는 방법)
+
+3. 하이퍼파라미터 튜닝(가지치기): **최대 깊이**, **최소 샘플 분할 수**, **최소 리프 노드 수** 등을 조정하여 과적합 해결.
+```python
+#최소 샘플 분할 수 수정
+
+X = pd.concat([exit, conti], ignore_index=True)
+y = X["is_deleted"]
+del X["is_deleted"]
+X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X,y)
+
+model = DecisionTreeClassifier(min_samples_split=95,random_state=0)
+model.fit(X_train, y_train)
+print(model.score(X_test, y_test))
+print(model.score(X_train, y_train))
+```
+0.9049429657794676\
+0.9157160963244614
+
+```python
+#최소 리프 노드 수 조정
+
+X = pd.concat([exit, conti], ignore_index=True)
+y = X["is_deleted"]
+del X["is_deleted"]
+X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X,y)
+
+model = DecisionTreeClassifier(min_samples_leaf=5,random_state=0)
+model.fit(X_train, y_train)
+print(model.score(X_test, y_test))
+print(model.score(X_train, y_train))
+```
+0.935361216730038\
+0.9359949302915083
+
+4. 교차 검증: 검증 세트를 떼어내어 평가하는 과정을 여러 번 반복. 그 다음 이 점수를 평균하여 최종 검증 점수를 얻음.
+```python
+X = pd.concat([exit, conti], ignore_index=True)
+y = X["is_deleted"]
+del X["is_deleted"]
+X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X,y)
+
+model = DecisionTreeClassifier(random_state=0)
+from sklearn.model_selection import cross_validate
+scores = cross_validate(model, X_train, y_train, cv=10, return_train_score=True)
+
+import numpy as np
+print(np.mean(scores['test_score']))
+print(np.mean(scores['train_score']))
+```
+0.892892848504394\
+0.9819038368139875
+
+5. 랜덤 포레스트: 앙상블 학습의 대표 주자 중 하나로 안정적인 성능 덕분에 널리 사용됨. 결정 트리를 랜덤하게 만들어 결정 트리의 숲을 만들고 각 결정 트리의 예측을 사용해 최종 예측을 만듦. 기본적으로 100개의 결정 트리를 훈련함.
+```python
+X = pd.concat([exit, conti], ignore_index=True)
+y = X["is_deleted"]
+del X["is_deleted"]
+X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X,y)
+
+model = DecisionTreeClassifier(random_state=0)
+from sklearn.model_selection import cross_validate
+from sklearn.ensemble import RandomForestClassifier
+rf = RandomForestClassifier(n_jobs=-1, random_state=42)
+scores = cross_validate(rf, X_train, y_train, return_train_score=True, n_jobs=-1) 
+
+print(np.mean(scores['test_score']))
+print(np.mean(scores['train_score']))
+```
+0.9169821177416114\
+0.987643060506705
