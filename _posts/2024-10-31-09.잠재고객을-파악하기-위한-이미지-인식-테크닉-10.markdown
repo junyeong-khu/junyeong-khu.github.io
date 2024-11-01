@@ -1,0 +1,271 @@
+---
+layout: post
+title: "파이썬 데이터분석 실무 테크닉 100 : 9. 잠재고객을 파악하기 위한 이미지 인식 테크닉 10"
+date: 2024-10-31 03:01:45 +0900
+categories: 파이썬_데이터분석_실무_테크닉_100
+---
+## <span style= 'background-color: #f1f8ff'>고객의 소리
+🗣️ 우리가 운영하는 대리점에 카메라를 설치하고 촬영해 봤습니다. 시간대에 따라 사람의 왕래가 다르기 때문에 분석하면 재미있을 것 같습니다만, 우리는 이미지를 어떻게 분석하는지 전혀 알지 못합니다. 또, 이미지에서 어떤 정보를 얻을 수 있는지도 모르기 때문에 어떻게 활용해야 할지 모르겠습니다. 활용할 수 있는 좋은 방법을 제안해주세요.
+
+
+## <span style= 'background-color: #f1f8ff'>9-0: 전제조건
+💡 이 장의 10개 테크닉은 대리점 앞 도로의 동영상/이미지를 다룹니다. 동영상은 mov 폴더에, 이미지는 img 폴더에 각각 저장돼 있습니다. 또 동영상을 이미지화한 것(스냅숏)을 저장할 빈 폴더 snapshot을 만들었습니다. 동영상 파일인 avi를 mac에서 볼 때 기본으로 탑재된 소프트웨어로는 볼 수 없기 때문에 별도의 재생 소프트웨어를 내려받아야 할 수도 있습니다.
+![image](https://github.com/user-attachments/assets/406fddec-10c4-4054-b7f3-d6820bd8aaad)
+
+
+## <span style= 'background-color: #f1f8ff'>9-1: 이미지 데이터를 불러오자
+🗃️ 이미지 데이터 불러오기
+```python
+import cv2
+img = cv2.imread("img/img01.jpg")
+height, width = img.shape[:2] #이미지 정보 추출. 높이와 너비만 가져옴.
+print("이미지 가로: " + str(width))
+print("이미지 세로: " + str(height))
+cv2.imshow("img",img)
+cv2.waitKey(0) #이미지를 표시할 시간 지정. 0이면 윈도우를 닫을 때까지 계속해서 보여줌.
+```
+이미지 가로: 1920\
+이미지 세로: 1440
+
+![image](https://github.com/user-attachments/assets/1b2a4833-d1eb-48c4-baec-a361395a7135)
+
+
+## <span style= 'background-color: #f1f8ff'>9-2: 동영상 데이터를 불러오자
+🗃️ 동영상 데이터 불러오기
+```python
+import cv2
+
+#정보 취득
+cap = cv2.VideoCapture("mov/mov01.avi")
+width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+heigth = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+fps = cap.get(cv2.CAP_PROP_FPS)
+print("가로: " + str(width))
+print("세로: " + str(height))
+print("총 프레임수: " + str(count))
+print("FPS: " + str(fps))
+
+#출력
+while(cap.isOpened()): #cap이 열려있는 동안 반복.
+    ret, frame = cap.read() #비디오에서 프레임을 읽음. ret은 프레임을 성공적으로 읽었는지를 나타내는 불리언 값.
+    if ret: #프레임이 성공적으로 읽혔을 경우
+        cv2.imshow("frame", frame) #frame 창에 읽은 프레임을 표시.
+    if cv2.waitKey(1) & 0xFF == ord("q"): #각 프레임을 1밀리초 동안 표시하고, 모든 프레임을 처리하거나 q키를 클릭하면 종료.
+        break
+cap.realease() #비디오 캡처 객체 해제.
+cv2.destroyAllWindows() #모든 창을 닫음.
+```
+가로: 1920.0\
+높이: 1440.0\
+총 프레임 수: 401.0\
+FPS: 30.0
+
+![image](https://github.com/user-attachments/assets/1b2a4833-d1eb-48c4-baec-a361395a7135)
+
+🔎 동영상을 여러 개의 이미지(프레임)로 캡처하여 imshow를 통해 하나씩 보여주어 동영상처럼 보여주는 과정.
+
+
+## <span style= 'background-color: #f1f8ff'>9-3: 동영상을 이미지로 나누고 저장하자
+🗃️ 캡처 이미지 저장
+```python
+cap = cv2.VideoCapture("mov/mov01.avi")
+num = 0
+while(cap.isOpened()):
+    ret, frame = cap.read()
+    if ret:
+        cv2.imshow("frame", frame)
+        filepath = "snapshot/snapshot_" + str(num) + ".jpg"
+        cv2.imwrite(filepath,frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+    num = num + 1
+cap.realease()
+cv2.destroyAllWindows()
+```
+![image](https://github.com/user-attachments/assets/95f8cb03-2b63-4a6a-abed-705d66b971f8)
+
+🔎 cv2.imwrite(A, B): A는 파일 경로, B는 저장할 이미지를 의미.
+
+
+## <span style= 'background-color: #f1f8ff'>9-4: 이미지 속에 사람이 어디에 있는지 검출해 보자
+🗃️ 사람 검출: 사전에 학습된 모델을 사용. 사각형을 그리는 함수를 통해 어느 위치의 사람을 검출했는지 확인.
+```python
+#준비
+hog = cv2.HOGDescriptor()
+hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+hogParams = {'winStride': (8, 8), 'padding': (32, 32), 'scale': 1.05, 'hitThreshold': 0, 'finalThreshold': 5}
+
+#검출
+img = cv2.imread("img/img01.jpg")
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+human, r = hog.detectMultiScale(gray, **hogParmas)
+if (len(human)>0):
+    for (x, y, w, h) in human:
+        cv2.rectangle(img, (x, y), (x + w, y + h), (255,255,255), 3)
+cv2.namedWindow("img",cv2.WINDOW_NORMAL)
+cv2.imshow("img",img)
+cv2.imwrite("temp.jpg",img)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
+![image](https://github.com/user-attachments/assets/00bc7004-9511-4fdd-9726-3b1e7205fb67)
+
+
+🔎 HOG 특징량: Histogram of Oriented Gradients의 약자로 휘도의 기울기를 의미. 사람 실루엣 형태의 특징을 위치나 각도로 표현한 것. 이를 통해 사람을 간단하게 인식할 수 있음.
+
+
+🔎 약간의 오검출이 있지만 통계적인 경향을 파악하는 데는 충분히 이용 가능.
+
+
+## <span style= 'background-color: #f1f8ff'>9-5: 이미지 속 사람 얼굴을 검출해 보자
+🗃️ 사람 얼굴 검출: 사전에 학습된 모델을 사용.
+```python
+#준비
+cascade_file = "haarcascade_frontalface_alt.xml"
+cascade = cv2.CascadeClassifier(cascade_file)
+
+#검출
+img = cv2.imread("img/img02.jpg")
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+face_list = cascade.detectMultiScale(gray, minSize=(50, 50))
+
+#검출한 얼굴 표시
+for (x, y, w, h) in face_list:
+    color = (0, 0, 225)
+    pen_w = 3
+    cv2.rectangle(img, (x, y), (x+w, y+h), color, thickness = pen_w)
+
+cv2.namedWindow("img",cv2.WINDOW_NORMAL)
+cv2.imshow("img",img)
+cv2.imwrite("temp.jpg",img)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
+![image](https://github.com/user-attachments/assets/3613ad59-476a-4c0b-a299-442286468d94)
+
+🔎 이번 코드에서는 정면 얼굴을 인식하는 모델만을 사용해서 위 사진의 왼쪽 여성의 얼굴은 인식하지 못함.
+
+
+## <span style= 'background-color: #f1f8ff'>9-6: 이미지 속 사람의 얼굴이 어느 쪽을 보고 있는지 검출해 보자
+🗃️ 얼굴 랜드마크 검출: 눈, 코, 입, 윤곽의 68개 특징점으로 표현한 얼굴 랜드마크를 검출하여 사람의 얼굴이 어느 쪽을 바라보고 있는지 파악.
+```python
+import dlib
+import math
+
+#준비
+predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
+detector = dlib.get_frontal_face_detector()
+
+#검출
+img = cv2.imread("img/img02.jpg")
+dets = detector(img, 1)
+
+for k, d in enumerate(dets):
+    shape = predictor(img, d)
+
+    #얼굴 영역 표시
+    color_f = (0, 0, 225)
+    color_l_out = (255, 0, 0)
+    color_l_in = (0, 255, 0)
+    line_w = 3
+    circle_r = 3
+    fontType = cv2.FONT_HERSHEY_SIMPLEX
+    fontSize = 1
+
+    cv2.rectangle(img, (d.left(), d.top()), (d.right(), d.bottom()), color_f, line_w)
+    cv2.putText(img, str(k), (d.left(), d.top()), fontType, fontSize, color_f, line_w)
+
+    #중심을 계산할 사각형 준비
+    num_of_points_out = 17
+    num_of_points_in = shape.num_parts - num_of_points_out
+    gx_out = 0
+    gy_out = 0
+    gx_in = 0
+    gy_in = 0
+    for shape_point_count in range(shape.num_parts):
+        shape_point = shape.part(shape_point_count)
+        #print("얼굴 랜드마크No.{} 좌표위치: ({},{})".format(shape_point_count, shape_point.x, shape_point.y))
+        #얼굴 랜드마크마다 그리기
+        if shape_point_count<num_of_points_out:
+            cv2.circle(img,(shape_point.x, shape_point.y),circle_r,color_l_out, line_w)
+            gx_out = gx_out + shape_point.x/num_of_points_out
+            gy_out = gy_out + shape_point.y/num_of_points_out
+        else:
+            cv2.circle(img,(shape_point.x, shape_point.y),circle_r,color_l_in, line_w)
+            gx_in = gx_in + shape_point.x/num_of_points_in
+            gy_in = gy_in + shape_point.y/num_of_points_in
+
+    #중심위치 표시
+    cv2.circle(img,(int(gx_out), int(gy_out)),circle_r,(0,0,255), line_w)
+    cv2.circle(img,(int(gx_in), int(gy_in)),circle_r,(0,0,0), line_w)
+
+    #얼굴 방향 표시
+    theta = math.asin(2*(gx_in-gx_out)/(d.right()-d.left()))
+    radian = theta*180/math.pi
+
+    print("얼굴방향:{} (각도:{}도)".format(theta,radian))
+
+    #얼굴방향 표시
+    if radian<0:
+        textPrefix = " left "
+    else:
+        textPrefix = " right "
+    textShow = textPrefix + str(round(abs(radian),1)) + " deg."
+    cv2.putText(img, textShow, (d.left(), d.top()), fontType, fontSize, color_f, line_w)
+
+cv2.namedWindow("img",cv2.WINDOW_NORMAL)
+cv2.imshow("img",img)
+cv2.imwrite("temp.jpg",img)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
+![image](https://github.com/user-attachments/assets/fbc06864-aa4d-4a18-be33-c27147666563)
+
+🔎 dlib을 이용하면 표정의 변화 같은 것도 검출 가능. 이번 테크닉은 얼굴 랜드마크를 검출하는 흐름을 배우는 과정으로 생각.
+
+
+## <span style= 'background-color: #f1f8ff'>9-7: 검출한 정보를 종합해서 타임랩스를 만들어보자
+🗃️ 타임랩스 생성: 간단한 경향을 파악하는 데는 타임랩스가 적당함.
+```python
+movie_name = "timelapse.avi"
+fourcc = cv2.VideoWriter_fourcc('X', 'V', 'I', 'D')
+video = cv2.VideoWriter(movie_name,fourcc, 30, (Width,Height))
+video.write(frame)
+
+video.release()
+```
+
+
+## <span style= 'background-color: #f1f8ff'>9-8: 전체 모습을 그래프로 가시화해 보자
+🗃️ 전체 모습 가시화
+```python
+import pandas as pd
+list_df = pd.DataFrame( columns=['time','people'] )
+
+tmp_se = pd.Series( [num/fps,len(human) ], index=list_df.columns )
+list_df = list_df.append( tmp_se, ignore_index=True )
+
+import matplotlib.pyplot as plt
+plt.plot(list_df["time"], list_df["people"], label="test")
+plt.show()
+```
+![image](https://github.com/user-attachments/assets/e47ac166-74d2-4db2-8047-0f659985b2f3)
+
+
+## <span style= 'background-color: #f1f8ff'>9-9: 거리의 변화를 그래프로 확인해 보자
+🔎 지금까지의 방법을 토대로 다른 시간대에 촬영한 영상을 분석하고, 사람 수의 변화를 추측할 수 있음. 다만 HOG로 분석한 데이터는 노이즈가 많고 오검출로 변동이 많은 그래프가 되어 그 차이를 파악하기 어려움.
+
+
+## <span style= 'background-color: #f1f8ff'>9-10: 이동 평균을 계싼해서 노이즈를 제거하자
+🗃️ 이동 평균 계산: 노이즈는 계산하지 않아도 될 것을 계산해서 생기는 오차임. 따라서 이동 평균을 계산하면 오차를 줄일 수 있음.
+```python
+import numpy as np
+def moving_average(x, y):
+    y_conv = np.convolve(y, np.ones(5)/float(5), mode='valid')
+    x_dat = np.linspace(np.min(x), np.max(x), np.size(y_conv))
+    return x_dat, y_conv
+```
+
+
+### 출처 : 파이썬 데이터분석 실무 테크닉 100
